@@ -2,15 +2,21 @@ import React from 'react';
 
 const TitleBar: React.FC = () => {
   const handleMinimize = () => {
-    window.electronAPI?.minimizeWindow();
+    if (window.electronAPI?.minimizeWindow) {
+      window.electronAPI.minimizeWindow();
+    }
   };
 
   const handleMaximize = () => {
-    window.electronAPI?.maximizeWindow();
+    if (window.electronAPI?.maximizeWindow) {
+      window.electronAPI.maximizeWindow();
+    }
   };
 
   const handleClose = () => {
-    window.electronAPI?.closeWindow();
+    if (window.electronAPI?.closeWindow) {
+      window.electronAPI.closeWindow();
+    }
   };
 
   return (
@@ -22,16 +28,25 @@ const TitleBar: React.FC = () => {
       <div className="flex space-x-2 non-draggable">
         <button
           onClick={handleMinimize}
-          className="w-3 h-3 bg-yellow-500 rounded-full hover:bg-yellow-400 transition-colors"
-        />
+          className="w-3 h-3 bg-yellow-500 rounded-full hover:bg-yellow-400 transition-colors flex items-center justify-center text-[8px] text-black font-bold"
+          title="Minimizar"
+        >
+          _
+        </button>
         <button
           onClick={handleMaximize}
-          className="w-3 h-3 bg-green-500 rounded-full hover:bg-green-400 transition-colors"
-        />
+          className="w-3 h-3 bg-green-500 rounded-full hover:bg-green-400 transition-colors flex items-center justify-center text-[8px] text-black font-bold"
+          title="Maximizar"
+        >
+          □
+        </button>
         <button
           onClick={handleClose}
-          className="w-3 h-3 bg-red-500 rounded-full hover:bg-red-400 transition-colors"
-        />
+          className="w-3 h-3 bg-red-500 rounded-full hover:bg-red-400 transition-colors flex items-center justify-center text-[8px] text-black font-bold"
+          title="Cerrar"
+        >
+          ×
+        </button>
       </div>
     </div>
   );
