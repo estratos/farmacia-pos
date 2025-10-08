@@ -1,0 +1,56 @@
+{
+  "name": "farmacia-pos",
+  "version": "1.0.0",
+  "description": "Sistema de punto de venta para farmacias",
+  "main": "dist-electron/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    
+    "electron": "electron .",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron:build": "npm run build && tsc src/electron/main.ts --outDir dist-electron --target ES2020 --module CommonJS && tsc src/electron/preload.ts --outDir dist-electron --target ES2020 --module CommonJS",
+    "dist": "npm run electron:build && electron-builder",
+    
+    "build:all": "npm run build && npm run electron:build",
+    "pack": "npm run build:all && electron-builder --dir"
+  },
+  "build": {
+    "appId": "com.tufarmacia.pos",
+    "productName": "Farmacia POS",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Farmacia POS"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png"
+    }
+  }
+}
