@@ -1,0 +1,12 @@
+FARMACIA POS - SISTEMA DE PUNTO DE VENTA
+=========================================
+
+LICENCIA DE USO
+
+Este software es propiedad de Estratos y está protegido por las leyes de derechos de autor.
+
+Derechos de autor © 2025 Estratos. Todos los derechos reservados.
+
+Se concede permiso para usar este software únicamente con fines comerciales legítimos.
+
+PROHIBIDA SU DISTRIBUCIÓN, MODIFICACIÓN O COPIA SIN AUTORIZACIÓN EXPRESA.

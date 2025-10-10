@@ -1,16 +1,68 @@
 {
   "name": "farmacia-pos",
   "version": "1.0.0",
-  "type": "module",
+  "description": "Sistema de punto de venta para farmacias",
+  "author": "Tu Nombre <tu@email.com>",
+  "license": "MIT",
+  "homepage": "./",
+  "main": "dist-electron/main.js",
+  "type": "commonjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    
     "electron": "electron .",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
-    "electron:build": "npm run build && tsc src/electron/main.ts --outDir dist-electron --target ES2020 --module CommonJS && tsc src/electron/preload.ts --outDir dist-electron --target ES2020 --module CommonJS",
-    "dist": "npm run electron:build && electron-builder",
-    "build:all": "npm run build && npm run electron:build"
+    "electron:dev": "concurrently -k \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron:build": "npm run build && tsc -p tsconfig.electron.json",
+    
+    "dist": "npm run electron:build && electron-builder --win --x64",
+    "dist:dir": "npm run electron:build && electron-builder --win --x64 --dir",
+    
+    "clean": "rm -rf dist dist-electron release",
+    "clean:all": "rm -rf dist dist-electron release node_modules package-lock.json",
+    
+    "check:configs": "node scripts/check-configs.js",
+    "verify:production": "node scripts/verify-production.js"
+  },
+  "build": {
+    "appId": "com.farmacia.pos",
+    "productName": "Farmacia POS",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json",
+      "!**/*.map",
+      "!**/.vscode"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Farmacia POS",
+      "uninstallDisplayName": "Farmacia POS"
+    }
   },
   "dependencies": {
     "electron-is-dev": "^2.0.0",
@@ -24,7 +76,7 @@
     "@vitejs/plugin-react": "^4.0.3",
     "autoprefixer": "^10.4.14",
     "concurrently": "^8.2.0",
-    "electron": "^25.3.1",
+    "electron": "^25.9.8",
     "electron-builder": "^24.6.3",
     "postcss": "^8.4.27",
     "tailwindcss": "^3.3.0",
