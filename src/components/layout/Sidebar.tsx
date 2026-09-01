@@ -7,6 +7,7 @@ import {
   BarChart3,
   Settings,
   Pill,
+  History,
 } from 'lucide-react';
 import { settingsService } from '../../services/settingsService';
 
@@ -23,6 +24,7 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
       { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
       { path: '/pos', icon: ShoppingCart, label: 'Punto de Venta' },
       { path: '/inventory', icon: Package, label: 'Inventario' },
+      { path: '/movements', icon: History, label: 'Movimientos' },
     ],
   },
   {
@@ -99,7 +101,7 @@ const Sidebar: React.FC = () => {
           <p className="font-semibold text-slate-800 dark:text-slate-100">{settings.pharmacyName}</p>
           <p className="text-xs text-slate-500 dark:text-slate-400">{settings.licenseNumber}</p>
           <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
-            <p className="text-xs text-slate-400 dark:text-slate-500">v1.1.0</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">v1.2.0</p>
           </div>
         </div>
       </div>

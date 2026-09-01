@@ -126,7 +126,7 @@ function SettingsPage() {
           Acerca de
         </h3>
         <p className="text-sm text-slate-600 dark:text-slate-300 pl-11">
-          Farmacia POS v1.1.0 — Sistema de punto de venta para farmacias.
+          Farmacia POS v1.2.0 — Sistema de punto de venta para farmacias.
           <br />
           Los datos se guardan localmente en este equipo.
         </p>

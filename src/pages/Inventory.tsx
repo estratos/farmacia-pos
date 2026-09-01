@@ -1,10 +1,25 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, Search, Package, FileText, ShieldAlert } from 'lucide-react';
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  Package,
+  FileText,
+  ShieldAlert,
+  PackagePlus,
+  PackageMinus,
+  SlidersHorizontal,
+  History,
+  ArrowLeftRight,
+} from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
+import { useAppContext } from '../contexts/AppContext';
 import { productService } from '../services/productService';
+import { movementService, MOVEMENT_LABELS } from '../services/movementService';
 import { formatMoney } from '../services/storage';
-import type { Product } from '../types';
+import type { InventoryMovement, MovementType, Product } from '../types';
 
 interface ProductForm {
   name: string;
@@ -32,6 +47,14 @@ const emptyForm: ProductForm = {
   lot_number: '',
 };
 
+type StockAction = 'purchase' | 'adjustment' | 'shrinkage';
+
+const STOCK_ACTIONS: { value: StockAction; label: string; icon: React.ComponentType<{ className?: string }>; color: string }[] = [
+  { value: 'purchase', label: 'Entrada', icon: PackagePlus, color: 'text-emerald-600 dark:text-emerald-400' },
+  { value: 'adjustment', label: 'Ajuste', icon: SlidersHorizontal, color: 'text-amber-600 dark:text-amber-400' },
+  { value: 'shrinkage', label: 'Merma', icon: PackageMinus, color: 'text-red-600 dark:text-red-400' },
+];
+
 function Inventory() {
   const [products, setProducts] = useState<Product[]>(() => productService.getProducts());
   const [search, setSearch] = useState('');
@@ -40,10 +63,21 @@ function Inventory() {
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
+  const { state } = useAppContext();
+
+  // Modal de movimientos de stock por producto
+  const [stockProduct, setStockProduct] = useState<Product | null>(null);
+  const [stockAction, setStockAction] = useState<StockAction>('purchase');
+  const [stockQty, setStockQty] = useState('');
+  const [stockReason, setStockReason] = useState('');
+  const [stockSupplier, setStockSupplier] = useState('');
+  const [stockCost, setStockCost] = useState('');
+  const [stockError, setStockError] = useState<string | null>(null);
+  const [recentMovements, setRecentMovements] = useState<InventoryMovement[]>([]);
 
   const filtered = search.trim() ? productService.searchProducts(search) : products;
-
   const refresh = () => setProducts(productService.getProducts());
+  const userName = state.user?.name;
 
   const openCreate = () => {
     setEditingId(null);
@@ -108,14 +142,78 @@ function Inventory() {
     };
 
     if (editingId !== null) {
-      productService.updateProduct(editingId, data);
+      productService.updateProduct(editingId, data, { user: userName });
       showToast('success', 'Producto actualizado');
     } else {
-      productService.createProduct(data);
+      productService.createProduct(data, { user: userName });
       showToast('success', 'Producto agregado');
     }
     refresh();
     setShowForm(false);
+  };
+
+  // ---- Modal de stock ----
+  const openStockModal = (product: Product) => {
+    setStockProduct(product);
+    setStockAction('purchase');
+    setStockQty('');
+    setStockReason('');
+    setStockSupplier('');
+    setStockCost('');
+    setStockError(null);
+    setRecentMovements(movementService.getByProduct(product.id).slice(0, 6));
+  };
+
+  const handleStockSubmit = () => {
+    if (!stockProduct) return;
+    const qty = parseFloat(stockQty);
+    if (isNaN(qty) || qty <= 0) {
+      setStockError('La cantidad debe ser mayor a 0');
+      return;
+    }
+
+    let delta: number;
+    let type: MovementType;
+    let reason: string | undefined;
+
+    if (stockAction === 'purchase') {
+      delta = qty;
+      type = 'purchase';
+      reason = 'Entrada de mercancía';
+    } else if (stockAction === 'shrinkage') {
+      if (qty > stockProduct.stock) {
+        setStockError(`La merma no puede superar el stock actual (${stockProduct.stock})`);
+        return;
+      }
+      delta = -qty;
+      type = 'shrinkage';
+      reason = stockReason.trim() || 'Merma (daño, vencimiento o pérdida)';
+    } else {
+      delta = qty;
+      type = 'adjustment';
+      reason = stockReason.trim() || 'Ajuste manual de inventario';
+    }
+
+    const cost = parseFloat(stockCost);
+    productService.adjustStock(stockProduct.id, delta, {
+      type,
+      reason,
+      supplier: stockAction === 'purchase' ? stockSupplier.trim() || undefined : undefined,
+      unitPrice: !isNaN(cost) && cost > 0 ? cost : stockProduct.price,
+      user: userName,
+    });
+    refresh();
+    setStockProduct(productService.getById(stockProduct.id) ?? stockProduct);
+    setRecentMovements(movementService.getByProduct(stockProduct.id).slice(0, 6));
+    setStockQty('');
+    setStockReason('');
+    setStockSupplier('');
+    setStockCost('');
+    setStockError(null);
+    showToast(
+      'success',
+      `${MOVEMENT_LABELS[type]}: ${delta > 0 ? '+' : ''}${qty} uds registrada`
+    );
   };
 
   return (
@@ -212,6 +310,13 @@ function Inventory() {
                   </td>
                   <td className="table-cell text-right">
                     <div className="flex justify-end gap-1">
+                      <button
+                        onClick={() => openStockModal(product)}
+                        className="p-2 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
+                        title="Movimientos de stock (entrada / ajuste / merma)"
+                      >
+                        <ArrowLeftRight className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => openEdit(product)}
                         className="p-2 rounded-lg text-slate-500 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
@@ -373,6 +478,174 @@ function Inventory() {
             <button onClick={handleSubmit} className="btn-primary flex-1">
               {editingId !== null ? 'Guardar Cambios' : 'Agregar Producto'}
             </button>
+          </div>
+        </Modal>
+      )}
+
+      {stockProduct && (
+        <Modal
+          title={`Movimientos de stock — ${stockProduct.name}`}
+          onClose={() => setStockProduct(null)}
+        >
+          <div className="space-y-4">
+            {/* Acciones */}
+            <div className="grid grid-cols-3 gap-2">
+              {STOCK_ACTIONS.map(({ value, label, icon: Icon, color }) => (
+                <button
+                  key={value}
+                  onClick={() => {
+                    setStockAction(value);
+                    setStockError(null);
+                  }}
+                  className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border text-sm font-medium transition-colors ${
+                    stockAction === value
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 ${stockAction === value ? 'text-white' : color}`} />
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Formulario */}
+            <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-4 space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500 dark:text-slate-400">Stock actual</span>
+                <span className="font-bold text-slate-900 dark:text-white tabular-nums">
+                  {stockProduct.stock} uds
+                </span>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {stockAction === 'adjustment'
+                    ? 'Cantidad (usa signo: + agrega, - resta)'
+                    : 'Cantidad'}
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  min={stockAction === 'adjustment' ? undefined : 0}
+                  className="input-field"
+                  value={stockQty}
+                  onChange={(e) => {
+                    setStockQty(e.target.value);
+                    setStockError(null);
+                  }}
+                  placeholder={stockAction === 'adjustment' ? 'Ej. -5 o +10' : 'Ej. 10'}
+                  autoFocus
+                />
+              </div>
+              {stockAction === 'purchase' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Proveedor
+                    </label>
+                    <input
+                      className="input-field"
+                      value={stockSupplier}
+                      onChange={(e) => setStockSupplier(e.target.value)}
+                      placeholder="Ej. Distribuidora XYZ"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Costo unitario
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="input-field"
+                      value={stockCost}
+                      onChange={(e) => setStockCost(e.target.value)}
+                      placeholder={String(stockProduct.price)}
+                    />
+                  </div>
+                </div>
+              )}
+              {(stockAction === 'adjustment' || stockAction === 'shrinkage') && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Motivo
+                  </label>
+                  <input
+                    className="input-field"
+                    value={stockReason}
+                    onChange={(e) => setStockReason(e.target.value)}
+                    placeholder={
+                      stockAction === 'shrinkage'
+                        ? 'Ej. Producto dañado, vencimiento, pérdida'
+                        : 'Ej. Conteo físico, corrección'
+                    }
+                  />
+                </div>
+              )}
+
+              {stockError && (
+                <div className="px-3 py-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg text-sm text-red-700 dark:text-red-300">
+                  {stockError}
+                </div>
+              )}
+
+              <button onClick={handleStockSubmit} className="btn-primary w-full">
+                <Plus className="w-4 h-4" />
+                Registrar {MOVEMENT_LABELS[stockAction]}
+              </button>
+            </div>
+
+            {/* Historial reciente */}
+            <div>
+              <h4 className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
+                <History className="w-4 h-4" />
+                Movimientos recientes
+              </h4>
+              {recentMovements.length === 0 ? (
+                <p className="text-sm text-slate-400 dark:text-slate-500">
+                  Sin movimientos registrados para este producto.
+                </p>
+              ) : (
+                <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                  {recentMovements.map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex justify-between items-center px-3 py-2 bg-slate-50 dark:bg-slate-700/40 rounded-lg text-sm"
+                    >
+                      <div>
+                        <span className="badge bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                          {MOVEMENT_LABELS[m.type]}
+                        </span>
+                        <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">
+                          {new Date(m.created_at).toLocaleString('es-MX', {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span
+                          className={`font-semibold tabular-nums ${
+                            m.quantity > 0
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-red-600 dark:text-red-400'
+                          }`}
+                        >
+                          {m.quantity > 0 ? '+' : ''}
+                          {m.quantity}
+                        </span>
+                        <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">
+                          {m.stock_before} → {m.stock_after}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </Modal>
       )}

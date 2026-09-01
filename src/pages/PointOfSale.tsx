@@ -47,7 +47,7 @@ function PointOfSale() {
     received?: number;
     change?: number;
   }) => {
-    const sale = saleService.createSale(payload);
+    const sale = saleService.createSale(payload, { user: state.user?.name });
     dispatch({ type: 'CLEAR_CART' });
     setShowCheckout(false);
     setLastSale(sale);

@@ -10,6 +10,7 @@ Los datos se guardan **localmente** en el equipo (localStorage), sin necesidad d
 - **Cobro**: efectivo (con cálculo de cambio), tarjeta o transferencia.
 - **Recibo / Ticket**: vista previa en formato térmico de 80mm e impresión (impresora del sistema o térmica con controlador genérico).
 - **Inventario**: alta, edición, baja y búsqueda de productos; alertas de stock bajo; campos de lote y fecha de expiración.
+- **Movimientos de inventario (auditoría)**: cada cambio de stock queda registrado con tipo (stock inicial, entrada/compra, venta, devolución, ajuste, merma), cantidad con signo, stock antes/después, referencia (ej. número de venta), motivo, proveedor, usuario y fecha. Pantalla dedicada con filtros (tipo, producto, rango de fechas, búsqueda) y resúmenes de entradas/salidas/neto. Registro *append-only*: no se edita ni elimina.
 - **Clientes**: registro y administración de clientes.
 - **Reportes**: ventas por día, productos más vendidos e historial de ventas.
 - **Dashboard**: ventas del día, ingresos, productos populares, stock bajo y **gráfica de ventas de los últimos 7 días**.
@@ -79,7 +80,16 @@ src/
 
 ## Datos
 
-Todos los datos (productos, ventas, clientes, configuración) se persisten en `localStorage` bajo el prefijo `farmacia_pos_`. La primera vez se cargan productos de ejemplo. Para restablecer los datos, borra el almacenamiento del sitio o usa las herramientas de desarrollador.
+Todos los datos (productos, ventas, clientes, configuración, movimientos de inventario) se persisten en `localStorage` bajo el prefijo `farmacia_pos_`. La primera vez se cargan productos de ejemplo y se registra su stock como movimientos `initial`. Para restablecer los datos, borra el almacenamiento del sitio o usa las herramientas de desarrollador.
+
+## Arquitectura de datos y sincronización futura
+
+La capa de servicios (`src/services/`) aísla toda la persistencia en `storage.ts`. Para centralizar en un backend:
+
+1. Reemplaza la implementación de `loadData`/`saveData` (o de cada servicio) por llamadas HTTP a la API, **manteniendo las mismas interfaces** — las páginas no necesitan cambios.
+2. Los registros ya tienen el esquema pensado para sincronizar: **IDs estables**, timestamps ISO 8601 y referencias (`product_id`, `reference` como el número de venta).
+3. Los movimientos de inventario son *append-only* (traza de auditoría) y referencian al producto por ID con snapshot de nombre/código, de modo que el historial sobrevive a cambios o bajas de producto.
+4. Tipos de movimiento estables (en inglés): `initial`, `purchase`, `sale`, `return`, `adjustment`, `shrinkage` — la UI los muestra en español.
 
 ## Licencia
 

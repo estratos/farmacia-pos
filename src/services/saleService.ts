@@ -21,13 +21,25 @@ export const saleService = {
     return read().find((s) => s.id === id);
   },
 
-  createSale(sale: Omit<Sale, 'id' | 'date'>): Sale {
-    // Descontar stock de cada producto vendido
-    for (const item of sale.items) {
-      productService.adjustStock(item.id, -item.quantity);
-    }
+  createSale(
+    sale: Omit<Sale, 'id' | 'date'>,
+    opts?: { user?: string }
+  ): Sale {
     const sales = read();
-    const record: Sale = { ...sale, id: nextId(sales), date: new Date().toISOString() };
+    const id = nextId(sales);
+    const reference = `VENTA-${String(id).padStart(5, '0')}`;
+
+    // Descontar stock de cada producto vendido y registrar el movimiento
+    for (const item of sale.items) {
+      productService.adjustStock(item.id, -item.quantity, {
+        type: 'sale',
+        reference,
+        unitPrice: item.price,
+        user: opts?.user,
+      });
+    }
+
+    const record: Sale = { ...sale, id, date: new Date().toISOString() };
     write([record, ...sales]);
     return record;
   },

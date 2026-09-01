@@ -76,7 +76,7 @@ function Receipt({ sale, onClose }: ReceiptProps) {
 
         <div className="text-center">
           <p>{settings.receiptFooter}</p>
-          <p className="text-[10px] text-gray-500 mt-1">Farmacia POS v1.1.0</p>
+          <p className="text-[10px] text-gray-500 mt-1">Farmacia POS v1.2.0</p>
         </div>
       </div>
 
