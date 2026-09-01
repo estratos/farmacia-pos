@@ -1,104 +1,287 @@
-import React from 'react';
+import { useMemo } from 'react';
+import { ShoppingCart, DollarSign, Package, PackageX, AlertTriangle } from 'lucide-react';
+import { saleService } from '../services/saleService';
+import { productService } from '../services/productService';
+import { customerService } from '../services/customerService';
+import { settingsService } from '../services/settingsService';
+import { formatMoney } from '../services/storage';
 
-const Dashboard: React.FC = () => {
-  const stats = [
-    { label: 'Ventas Hoy', value: '$12,458', change: '+12%', color: 'blue' },
-    { label: 'Productos Vendidos', value: '156', change: '+8%', color: 'green' },
-    { label: 'Inventario Bajo', value: '23', change: '-5%', color: 'yellow' },
-    { label: 'Clientes Atendidos', value: '89', change: '+15%', color: 'purple' },
-  ];
+const PAYMENT_LABELS: Record<string, string> = {
+  efectivo: 'Efectivo',
+  tarjeta: 'Tarjeta',
+  transferencia: 'Transferencia',
+};
 
-  const recentSales = [
-    { id: '#00123', customer: 'Juan Pérez', amount: '$245.00', time: '10:30 AM' },
-    { id: '#00124', customer: 'María García', amount: '$189.50', time: '11:15 AM' },
-    { id: '#00125', customer: 'Carlos López', amount: '$320.75', time: '11:45 AM' },
-    { id: '#00126', customer: 'Ana Martínez', amount: '$156.25', time: '12:20 PM' },
-  ];
+const STAT_STYLES: Record<string, { chip: string; iconColor: string }> = {
+  blue: { chip: 'bg-blue-100 dark:bg-blue-500/15', iconColor: 'text-blue-600 dark:text-blue-400' },
+  emerald: {
+    chip: 'bg-emerald-100 dark:bg-emerald-500/15',
+    iconColor: 'text-emerald-600 dark:text-emerald-400',
+  },
+  violet: {
+    chip: 'bg-violet-100 dark:bg-violet-500/15',
+    iconColor: 'text-violet-600 dark:text-violet-400',
+  },
+  amber: {
+    chip: 'bg-amber-100 dark:bg-amber-500/15',
+    iconColor: 'text-amber-600 dark:text-amber-400',
+  },
+};
 
-  const popularProducts = [
-    { name: 'Paracetamol 500mg', sold: 45, revenue: '$1,147.50' },
-    { name: 'Amoxicilina 250mg', sold: 32, revenue: '$2,848.00' },
-    { name: 'Omeprazol 20mg', sold: 28, revenue: '$1,260.00' },
-    { name: 'Aspirina 500mg', sold: 25, revenue: '$875.00' },
-  ];
+function Dashboard() {
+  const data = useMemo(() => {
+    const todaySales = saleService.getTodaySales();
+    const allSales = saleService.getSales();
+    const lowStock = productService.getLowStock();
+    const customers = customerService.getCustomers();
 
-  const getColorClasses = (color: string) => {
-    const colors: any = {
-      blue: 'border-blue-500 bg-blue-50',
-      green: 'border-green-500 bg-green-50',
-      yellow: 'border-yellow-500 bg-yellow-50',
-      purple: 'border-purple-500 bg-purple-50',
+    const soldToday = todaySales.reduce(
+      (sum, s) => sum + s.items.reduce((acc, i) => acc + i.quantity, 0),
+      0
+    );
+    const revenueToday = todaySales.reduce((sum, s) => sum + s.total, 0);
+
+    // Últimos 7 días para la gráfica
+    const byDay = new Map<string, number>();
+    for (const sale of allSales) {
+      const day = new Date(sale.date).toDateString();
+      byDay.set(day, (byDay.get(day) ?? 0) + sale.total);
+    }
+    const chartDays = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      const key = d.toDateString();
+      return {
+        key,
+        label: d.toLocaleDateString('es-MX', { weekday: 'short' }),
+        total: byDay.get(key) ?? 0,
+      };
+    });
+
+    return {
+      todayCount: todaySales.length,
+      soldToday,
+      revenueToday,
+      lowStockCount: lowStock.length,
+      lowStock,
+      customerCount: customers.length,
+      recentSales: allSales.slice(0, 5),
+      topProducts: saleService.getTopProducts(4),
+      chartDays,
     };
-    return colors[color] || colors.blue;
-  };
+  }, []);
+
+  const maxChart = Math.max(...data.chartDays.map((d) => d.total), 1);
+
+  const stats = [
+    {
+      label: 'Ventas Hoy',
+      value: String(data.todayCount),
+      icon: ShoppingCart,
+      style: STAT_STYLES.blue,
+    },
+    {
+      label: 'Ingresos Hoy',
+      value: formatMoney(data.revenueToday),
+      icon: DollarSign,
+      style: STAT_STYLES.emerald,
+    },
+    {
+      label: 'Productos Vendidos',
+      value: String(data.soldToday),
+      icon: Package,
+      style: STAT_STYLES.violet,
+    },
+    {
+      label: 'Inventario Bajo',
+      value: String(data.lowStockCount),
+      icon: PackageX,
+      style: STAT_STYLES.amber,
+    },
+  ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
-        <div className="text-sm text-gray-500 bg-white px-4 py-2 rounded-lg border">
-          Actualizado hace 5 min
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {new Date().toLocaleDateString('es-MX', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            })}
+          </p>
+        </div>
+        <div className="text-xs text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
+          {data.customerCount} clientes registrados
         </div>
       </div>
-      
+
       {/* Tarjetas de estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <div key={index} className={`card p-6 border-l-4 ${getColorClasses(stat.color)}`}>
-            <h3 className="text-lg font-semibold text-gray-600 mb-2">{stat.label}</h3>
-            <div className="flex items-end justify-between">
-              <p className="text-3xl font-bold text-gray-800">{stat.value}</p>
-              <span className={`text-sm font-medium ${
-                stat.change.startsWith('+') ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {stat.change}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+        {stats.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div
+              key={stat.label}
+              className="card p-5 flex items-start justify-between"
+            >
+              <div>
+                <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">
+                  {stat.label}
+                </h3>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
+                  {stat.value}
+                </p>
+              </div>
+              <span
+                className={`flex items-center justify-center w-11 h-11 rounded-xl ${stat.style.chip}`}
+              >
+                <Icon className={`w-5 h-5 ${stat.style.iconColor}`} />
               </span>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Gráfica de ventas (últimos 7 días) */}
+      <div className="card p-6">
+        <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1">
+          Ventas — últimos 7 días
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">
+          Ingresos diarios totales
+        </p>
+        <div className="flex items-end gap-2 h-40">
+          {data.chartDays.map((d) => (
+            <div key={d.key} className="flex-1 flex flex-col items-center gap-1 h-full">
+              <div
+                className="w-full max-w-12 rounded-t-md bg-blue-500/70 dark:bg-blue-500/50 hover:bg-blue-600 dark:hover:bg-blue-400/70 transition-colors"
+                style={{
+                  height: d.total > 0 ? `${Math.max((d.total / maxChart) * 100, 4)}%` : '2px',
+                  opacity: d.total > 0 ? 1 : 0.25,
+                }}
+                title={`${d.label}: ${formatMoney(d.total)}`}
+              />
+              <span className="text-[10px] font-medium uppercase text-slate-400 dark:text-slate-500">
+                {d.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
         {/* Ventas Recientes */}
         <div className="card p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Ventas Recientes</h3>
-          <div className="space-y-3">
-            {recentSales.map((sale, index) => (
-              <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div>
-                  <div className="font-medium text-gray-800">{sale.id}</div>
-                  <div className="text-sm text-gray-600">{sale.customer}</div>
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-4">
+            Ventas Recientes
+          </h3>
+          {data.recentSales.length === 0 ? (
+            <div className="text-center py-10 text-slate-400 dark:text-slate-500">
+              <ShoppingCart className="w-10 h-10 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">Aún no hay ventas registradas.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {data.recentSales.map((sale) => (
+                <div
+                  key={sale.id}
+                  className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-700/40 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/70 transition-colors"
+                >
+                  <div>
+                    <div className="font-medium text-slate-800 dark:text-slate-100">
+                      #{String(sale.id).padStart(5, '0')}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      {PAYMENT_LABELS[sale.payment_method] ?? sale.payment_method} ·{' '}
+                      {new Date(sale.date).toLocaleTimeString('es-MX', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-semibold text-slate-900 dark:text-white tabular-nums">
+                      {formatMoney(sale.total)}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      {sale.items.length} artículos
+                    </div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-semibold text-gray-800">{sale.amount}</div>
-                  <div className="text-sm text-gray-500">{sale.time}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Productos Populares */}
         <div className="card p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Productos Populares</h3>
-          <div className="space-y-3">
-            {popularProducts.map((product, index) => (
-              <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div>
-                  <div className="font-medium text-gray-800">{product.name}</div>
-                  <div className="text-sm text-gray-600">{product.sold} vendidos</div>
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-4">
+            Productos Populares
+          </h3>
+          {data.topProducts.length === 0 ? (
+            <div className="text-center py-10 text-slate-400 dark:text-slate-500">
+              <Package className="w-10 h-10 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">Los productos más vendidos aparecerán aquí.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {data.topProducts.map((product) => (
+                <div
+                  key={product.name}
+                  className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-700/40 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/70 transition-colors"
+                >
+                  <div>
+                    <div className="font-medium text-slate-800 dark:text-slate-100">
+                      {product.name}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      {product.sold} vendidos
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                      {formatMoney(product.revenue)}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">Ingresos</div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-semibold text-green-600">{product.revenue}</div>
-                  <div className="text-sm text-gray-500">Ingresos</div>
-                </div>
-              </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Inventario bajo */}
+      {data.lowStock.length > 0 && (
+        <div className="card p-5 border-l-4 border-amber-500 bg-amber-50/60 dark:bg-amber-500/5 dark:border-amber-500/60">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+              Productos con stock bajo
+            </h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {data.lowStock.map((p) => (
+              <span
+                key={p.id}
+                className="bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 text-sm px-3 py-1 rounded-full"
+              >
+                {p.name} — {p.stock} uds
+              </span>
             ))}
           </div>
         </div>
-      </div>
+      )}
+
+      <p className="text-xs text-slate-400 dark:text-slate-500">
+        Farmacia: {settingsService.getSettings().pharmacyName}
+      </p>
     </div>
   );
-};
+}
 
 export default Dashboard;

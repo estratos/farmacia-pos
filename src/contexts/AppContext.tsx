@@ -1,19 +1,26 @@
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
+import { createContext, useContext, useReducer } from 'react';
+import type { ReactNode } from 'react';
+import type { CartItem, Product } from '../types';
+
+export interface AppUser {
+  name: string;
+  role: string;
+}
 
 interface AppState {
   cart: CartItem[];
-  user: any;
-  // Agregar más estados según necesites
+  user: AppUser | null;
 }
 
-type AppAction = 
-  | { type: 'ADD_TO_CART'; payload: CartItem }
+type AppAction =
+  | { type: 'ADD_TO_CART'; payload: Product }
   | { type: 'REMOVE_FROM_CART'; payload: number }
-  | { type: 'UPDATE_CART_QUANTITY'; payload: { id: number; quantity: number } };
+  | { type: 'UPDATE_CART_QUANTITY'; payload: { id: number; quantity: number } }
+  | { type: 'CLEAR_CART' };
 
 const initialState: AppState = {
   cart: [],
-  user: null,
+  user: { name: 'Admin', role: 'Farmacéutico' },
 };
 
 const AppContext = createContext<{
@@ -23,38 +30,42 @@ const AppContext = createContext<{
 
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
-    case 'ADD_TO_CART':
-      const existingItem = state.cart.find(item => item.id === action.payload.id);
+    case 'ADD_TO_CART': {
+      const existingItem = state.cart.find((item) => item.id === action.payload.id);
       if (existingItem) {
         return {
           ...state,
-          cart: state.cart.map(item =>
+          cart: state.cart.map((item) =>
             item.id === action.payload.id
-              ? { ...item, quantity: item.quantity + action.payload.quantity }
+              ? { ...item, quantity: item.quantity + 1 }
               : item
           ),
         };
       }
       return {
         ...state,
-        cart: [...state.cart, action.payload],
+        cart: [...state.cart, { ...action.payload, quantity: 1 }],
       };
+    }
 
     case 'REMOVE_FROM_CART':
       return {
         ...state,
-        cart: state.cart.filter(item => item.id !== action.payload),
+        cart: state.cart.filter((item) => item.id !== action.payload),
       };
 
     case 'UPDATE_CART_QUANTITY':
       return {
         ...state,
-        cart: state.cart.map(item =>
+        cart: state.cart.map((item) =>
           item.id === action.payload.id
             ? { ...item, quantity: action.payload.quantity }
             : item
         ),
       };
+
+    case 'CLEAR_CART':
+      return { ...state, cart: [] };
 
     default:
       return state;
@@ -71,6 +82,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAppContext() {
   const context = useContext(AppContext);
   if (!context) {

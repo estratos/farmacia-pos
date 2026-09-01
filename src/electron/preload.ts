@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Definir la interfaz localmente
+// Interfaz local de la API expuesta al renderer
 interface ElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
@@ -26,12 +26,4 @@ if (typeof process !== 'undefined' && process.versions?.electron) {
   }
 }
 
-// Mover la declaración global a un archivo de tipos separado
-// O usar este approach alternativo:
-export {}; // Esto convierte el archivo en un módulo
-
-declare global {
-  interface Window {
-    ElectronAPI?: ElectronAPI;
-  }
-}
+export {};

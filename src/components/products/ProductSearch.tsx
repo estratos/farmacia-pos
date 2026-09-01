@@ -1,67 +1,170 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import {
+  Search,
+  Plus,
+  Barcode,
+  FileText,
+  ShieldAlert,
+  CheckCircle2,
+  AlertTriangle,
+  Info,
+} from 'lucide-react';
+import { productService } from '../../services/productService';
+import { formatMoney } from '../../services/storage';
+import type { Product } from '../../types';
 
 interface ProductSearchProps {
-  onAddToCart: (product: any) => void;
+  onAddToCart: (product: Product) => void;
 }
 
-const ProductSearch: React.FC<ProductSearchProps> = ({ onAddToCart }) => {
+function ProductSearch({ onAddToCart }: ProductSearchProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [products] = useState<Product[]>(() => productService.getProducts());
+  const [feedback, setFeedback] = useState<{
+    type: 'success' | 'error' | 'info';
+    message: string;
+  } | null>(null);
 
-  // Productos de ejemplo
-  const products = [
-    { id: 1, name: 'Paracetamol 500mg', price: 25.50, stock: 45, barcode: '750123456789' },
-    { id: 2, name: 'Amoxicilina 250mg', price: 89.00, stock: 23, barcode: '750123456790' },
-    { id: 3, name: 'Omeprazol 20mg', price: 45.00, stock: 67, barcode: '750123456791' },
-    { id: 4, name: 'Aspirina 500mg', price: 35.00, stock: 89, barcode: '750123456792' },
-  ];
+  const filteredProducts = searchTerm.trim()
+    ? productService.searchProducts(searchTerm)
+    : products;
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.barcode.includes(searchTerm)
-  );
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter' || !searchTerm.trim()) return;
+
+    const byBarcode = productService.getProductByBarcode(searchTerm.trim());
+    if (byBarcode) {
+      if (byBarcode.stock <= 0) {
+        setFeedback({ type: 'error', message: `${byBarcode.name} no tiene stock disponible` });
+      } else {
+        onAddToCart(byBarcode);
+        setFeedback({ type: 'success', message: `Agregado: ${byBarcode.name}` });
+      }
+      setSearchTerm('');
+      return;
+    }
+
+    if (filteredProducts.length === 1) {
+      onAddToCart(filteredProducts[0]);
+      setSearchTerm('');
+    } else if (filteredProducts.length > 1) {
+      setFeedback({ type: 'info', message: 'Selecciona un producto de la lista' });
+    } else {
+      setFeedback({ type: 'error', message: 'No se encontró el producto' });
+    }
+  };
+
+  const feedbackStyles = {
+    success: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300',
+    error: 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300',
+    info: 'bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-700 dark:text-sky-300',
+  };
+  const feedbackIcons = {
+    success: <CheckCircle2 className="w-4 h-4 shrink-0" />,
+    error: <AlertTriangle className="w-4 h-4 shrink-0" />,
+    info: <Info className="w-4 h-4 shrink-0" />,
+  };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-lg font-semibold text-gray-800 mb-4">Buscar Productos</h2>
-      
-      <div className="mb-6">
+    <div className="card p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+          Buscar Productos
+        </h2>
+        <span className="badge bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300">
+          {filteredProducts.length} resultados
+        </span>
+      </div>
+
+      <div className="relative mb-2">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
         <input
           type="text"
           placeholder="Buscar por nombre o código de barras..."
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="input-field pl-9"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setFeedback(null);
+          }}
+          onKeyDown={handleKeyDown}
+          autoFocus
         />
       </div>
+      <p className="text-xs text-slate-400 dark:text-slate-500 mb-4 flex items-center gap-1.5">
+        <Barcode className="w-3.5 h-3.5" />
+        Lector de código de barras: escanea y presiona Enter para agregar directo al carrito.
+      </p>
+
+      {feedback && (
+        <div
+          className={`mb-4 px-3 py-2 border rounded-lg text-sm flex items-center gap-2 ${feedbackStyles[feedback.type]}`}
+        >
+          {feedbackIcons[feedback.type]}
+          {feedback.message}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredProducts.map((product) => (
-          <div key={product.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-            <h3 className="font-semibold text-gray-800">{product.name}</h3>
-            <p className="text-sm text-gray-600">Código: {product.barcode}</p>
+          <div
+            key={product.id}
+            className="border border-slate-200 dark:border-slate-700 rounded-xl p-4 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-500/40 transition-all"
+          >
+            <div className="flex justify-between items-start gap-2">
+              <h3 className="font-semibold text-slate-900 dark:text-white">{product.name}</h3>
+              <div className="flex gap-1 shrink-0">
+                {product.requires_prescription && (
+                  <span className="badge bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300">
+                    <FileText className="w-3 h-3" /> Receta
+                  </span>
+                )}
+                {product.controlled && (
+                  <span className="badge bg-violet-100 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300">
+                    <ShieldAlert className="w-3 h-3" /> Controlado
+                  </span>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Código: {product.barcode}
+            </p>
             <div className="flex justify-between items-center mt-3">
-              <span className="text-lg font-bold text-blue-600">${product.price.toFixed(2)}</span>
-              <span className={`text-sm ${product.stock < 30 ? 'text-red-600' : 'text-green-600'}`}>
+              <span className="text-lg font-bold text-blue-600 dark:text-blue-400 tabular-nums">
+                {formatMoney(product.price)}
+              </span>
+              <span
+                className={`text-xs font-medium ${
+                  product.stock <= 0
+                    ? 'text-red-600 dark:text-red-400'
+                    : product.stock < 10
+                      ? 'text-amber-600 dark:text-amber-400'
+                      : 'text-emerald-600 dark:text-emerald-400'
+                }`}
+              >
                 Stock: {product.stock}
               </span>
             </div>
             <button
               onClick={() => onAddToCart(product)}
-              className="w-full mt-3 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={product.stock <= 0}
+              className="btn-primary w-full mt-3 text-sm"
             >
-              Agregar al Carrito
+              <Plus className="w-4 h-4" />
+              {product.stock <= 0 ? 'Sin stock' : 'Agregar al Carrito'}
             </button>
           </div>
         ))}
       </div>
 
-      {filteredProducts.length === 0 && searchTerm && (
-        <div className="text-center py-8 text-gray-500">
-          No se encontraron productos
+      {filteredProducts.length === 0 && (
+        <div className="text-center py-10 text-slate-400 dark:text-slate-500">
+          <Search className="w-10 h-10 mx-auto mb-2 opacity-40" />
+          <p className="text-sm">No se encontraron productos</p>
         </div>
       )}
     </div>
   );
-};
+}
 
 export default ProductSearch;

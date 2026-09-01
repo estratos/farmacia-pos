@@ -23,6 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
+# Caché npm local (usada cuando la caché global no está disponible)
+.npm-cache*/
+
 /release/
 /dist/
 /dist-electron/

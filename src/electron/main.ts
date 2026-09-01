@@ -14,7 +14,6 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
-      webSecurity: false
     },
     show: false,
   });
@@ -31,39 +30,30 @@ function createWindow() {
 
 function loadApp() {
   if (isDev) {
-    console.log('🔧 MODO DESARROLLO - Cargando desde servidor Vite');
+    console.log('MODO DESARROLLO - Cargando desde servidor Vite');
     mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools();
   } else {
-    console.log('📦 MODO PRODUCCIÓN - Cargando archivos compilados');
-    
-    // En producción, los archivos de React están en el directorio de recursos
-    const reactBuildPath = path.join(process.cwd(), 'resources/dist/index.html');
-    
-    console.log('🔍 Buscando build de React en:', reactBuildPath);
-    
+    console.log('MODO PRODUCCIÓN - Cargando archivos compilados');
+
+    // En producción, electron-forge copia la carpeta dist/ a resources/dist
+    // (configurado con "extraResource": ["./dist"] en package.json).
+    const resourcesPath = (process as any).resourcesPath as string;
+    const reactBuildPath = path.join(resourcesPath, 'dist', 'index.html');
+
+    console.log('Buscando build de React en:', reactBuildPath);
+
     if (fs.existsSync(reactBuildPath)) {
-      console.log('✅ ENCONTRADO - Cargando aplicación React');
+      console.log('ENCONTRADO - Cargando aplicación React');
       mainWindow.loadFile(reactBuildPath);
     } else {
-      console.log('❌ NO ENCONTRADO - Mostrando error');
-      
-      // Listar qué archivos SÍ existen para debug
-      const resourcesDir = path.join(process.cwd(), 'resources/app');
-      if (fs.existsSync(resourcesDir)) {
-        console.log('📁 Archivos en resources/app/:');
-        const files = fs.readdirSync(resourcesDir);
-        files.forEach((file: string) => {
-          console.log('   - ' + file);
-        });
-      }
-      
-      showLoadError();
+      console.log('NO ENCONTRADO - Mostrando error');
+      showLoadError(reactBuildPath);
     }
   }
 }
 
-function showLoadError() {
+function showLoadError(buildPath: string) {
   const errorHtml = `
     <html>
     <head>
@@ -77,11 +67,11 @@ function showLoadError() {
     </head>
     <body>
       <div class="container">
-        <h1>🚨 Error: Build de React No Encontrado</h1>
+        <h1>Error: Build de React No Encontrado</h1>
         <p>El ejecutable de Electron se creó, pero no incluye los archivos compilados de React.</p>
         <p><strong>Problema:</strong> Los archivos en <code>dist/</code> no se están incluyendo en el paquete final.</p>
-        <p><strong>Solución:</strong> Verificar la configuración de <code>extraResource</code> en Electron Forge.</p>
-        <pre>Buscado en: ${path.join(process.cwd(), 'resources/app/index.html')}</pre>
+        <p><strong>Solución:</strong> Verificar la configuración de <code>extraResource</code> en Electron Forge y ejecutar <code>npm run dist</code>.</p>
+        <pre>Buscado en: ${buildPath}</pre>
       </div>
     </body>
     </html>
@@ -89,10 +79,32 @@ function showLoadError() {
   mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`);
 }
 
+// ---- IPC expuesto al renderer vía preload ----
 ipcMain.handle('get-app-version', () => app.getVersion());
+ipcMain.handle('get-app-path', () => app.getAppPath());
+ipcMain.on('window-control', (event: any, action: string) => {
+  if (!mainWindow) return;
+  switch (action) {
+    case 'minimize':
+      mainWindow.minimize();
+      break;
+    case 'maximize':
+      if (mainWindow.isMaximized()) {
+        mainWindow.unmaximize();
+      } else {
+        mainWindow.maximize();
+      }
+      break;
+    case 'close':
+      mainWindow.close();
+      break;
+    default:
+      console.warn('Acción de ventana desconocida:', action);
+  }
+});
 
 app.whenReady().then(() => {
-  console.log('✅ Electron iniciado');
+  console.log('Electron iniciado');
   createWindow();
 });
 

@@ -1,73 +1,86 @@
-# React + TypeScript + Vite
+# Farmacia POS 💊
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistema de punto de venta (POS) para farmacias, construido con **React + TypeScript + Vite + Tailwind CSS + Electron**.
 
-Currently, two official plugins are available:
+Los datos se guardan **localmente** en el equipo (localStorage), sin necesidad de servidor. La capa de servicios está diseñada para poder migrarse a un backend real en el futuro.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Características
 
-## React Compiler
+- **Punto de Venta**: búsqueda por nombre o código de barras (soporta lector de código de barras: escanea y presiona Enter), carrito con IVA configurable, validación de stock, aviso de medicamentos que requieren receta.
+- **Cobro**: efectivo (con cálculo de cambio), tarjeta o transferencia.
+- **Recibo / Ticket**: vista previa en formato térmico de 80mm e impresión (impresora del sistema o térmica con controlador genérico).
+- **Inventario**: alta, edición, baja y búsqueda de productos; alertas de stock bajo; campos de lote y fecha de expiración.
+- **Clientes**: registro y administración de clientes.
+- **Reportes**: ventas por día, productos más vendidos e historial de ventas.
+- **Dashboard**: ventas del día, ingresos, productos populares, stock bajo y **gráfica de ventas de los últimos 7 días**.
+- **Configuración**: nombre de la farmacia, licencia, % de IVA y pie de recibo.
+- **Interfaz profesional**: iconos SVG consistentes (Lucide), tipografía **Inter**, **modo claro/oscuro** con persistencia, **toasts** de confirmación y estados vacíos ilustrados.
+- **Electron**: ventana con barra de título personalizada (minimizar/maximizar/cerrar).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Stack
 
-## Expanding the ESLint configuration
+- React 19 + TypeScript (strict) + Vite 7
+- Tailwind CSS 3 (modo oscuro con clase `dark`)
+- React Router (HashRouter para compatibilidad con `file://`)
+- Lucide React (iconos) + @fontsource/inter (tipografía)
+- Electron 38 + Electron Forge
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Desarrollo
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+```bash
+npm install
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+# Terminal 1: servidor de Vite (http://localhost:3000)
+npm run dev
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Terminal 2: Electron en modo desarrollo (carga el servidor de Vite)
+npm run start
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Verificación de tipos
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run typecheck
 ```
+
+## Build y empaquetado
+
+```bash
+# Compilar el frontend (React) a dist/
+npm run build
+
+# Compilar el proceso de Electron a dist-electron/
+npm run electron:build
+
+# Empaquetar la app (sin instalador)
+npm run package
+
+# Generar instaladores (Windows: Squirrel .exe; mac/linux: .zip)
+npm run dist
+```
+
+> **Importante:** `npm run dist` primero compila el frontend y luego empaqueta. Electron carga el build de React desde `resources/dist/index.html` (configurado con `extraResource` en Electron Forge).
+
+## Estructura del proyecto
+
+```
+src/
+├── components/
+│   ├── layout/        # Sidebar, Header, Layout
+│   ├── products/      # ProductSearch
+│   ├── sales/         # Cart, CheckoutModal, Receipt (ticket 80mm)
+│   └── ui/            # TitleBar, Modal
+├── contexts/          # AppContext (estado del carrito)
+├── electron/          # main.ts y preload.ts (proceso de Electron)
+├── pages/             # Dashboard, PointOfSale, Inventory, Customers, Reports, Settings
+├── services/          # storage (localStorage), productService, saleService, customerService, settingsService
+└── types/             # Tipos compartidos
+```
+
+## Datos
+
+Todos los datos (productos, ventas, clientes, configuración) se persisten en `localStorage` bajo el prefijo `farmacia_pos_`. La primera vez se cargan productos de ejemplo. Para restablecer los datos, borra el almacenamiento del sitio o usa las herramientas de desarrollador.
+
+## Licencia
+
+MIT — ver `licence.txt`.
