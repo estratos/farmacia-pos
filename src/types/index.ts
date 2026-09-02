@@ -124,7 +124,7 @@ export interface CashSession {
   cerrada_el?: string | null; // ISO (al cerrar con el corte)
 }
 
-export type CashMovementType = 'apertura' | 'retiro' | 'ingreso' | 'ajuste';
+export type CashMovementType = 'apertura' | 'cierre' | 'retiro' | 'ingreso' | 'ajuste';
 
 export interface CashMovement {
   id: string;

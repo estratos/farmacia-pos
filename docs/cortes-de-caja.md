@@ -169,5 +169,14 @@ dispositivo, arqueos intermedios.
 3. **Retiros/ingresos**: **incluidos en el MVP** (con motivo, afectan el esperado).
 4. **Alcance del corte**: **por dispositivo/caja** (cada caja cierra su turno; sumable
    por tienda en reportes después).
-5. **Nota de backend**: los endpoints `/cash/*` se conectarán cuando el backend los
-   implemente (write-through + outbox); el MVP funciona 100% local.
+5. **Sincronización con el backend (implementada en el cliente)**: todos los
+   movimientos de caja (apertura, cierre/corte, retiros, ingresos) se **persisten
+   siempre en local** (`cashService` → localStorage) y un handler inyectado
+   (`remoteApi`) los sincroniza: una **sonda** detecta si el backend ya expone
+   `/cash/*`; si sí, envía write-through y, sin red, encola en el outbox
+   (`cash_open`, `cash_close`, `cash_withdrawal`, `cash_ingress`); si aún no los
+   expone, los movimientos se conservan en local hasta que el backend los active
+   (tras un reinicio de la app la sonda lo detecta y sincroniza de ahí en adelante).
+   **Pendiente del backend**: endpoints `/cash/open`, `/cash/close`,
+   `/cash/withdrawal`, `/cash/ingress`, `/cash/current` y entidades
+   `cash_session`/`cash_cut` en el change_log (contrato en §5.2).

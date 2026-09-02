@@ -24,6 +24,14 @@ const METHOD_LABELS: Record<string, string> = {
   transferencia: 'Transferencia',
 };
 
+const MOVEMENT_LABELS: Record<string, string> = {
+  apertura: 'Apertura',
+  cierre: 'Cierre',
+  retiro: 'Retiro',
+  ingreso: 'Ingreso',
+  ajuste: 'Ajuste',
+};
+
 function CashPage() {
   const { state } = useAppContext();
   const { showToast } = useToast();
@@ -35,6 +43,9 @@ function CashPage() {
   const session = cashService.getCurrentSession();
   const expected = session ? cashService.computeExpected(session) : null;
   const cuts = cashService.getCuts();
+  const sessionMovements = session
+    ? cashService.getMovements().filter((m) => m.session_id === session.id)
+    : [];
 
   const [fondo, setFondo] = useState('');
   const [showCut, setShowCut] = useState(false);
@@ -207,6 +218,58 @@ function CashPage() {
               El esperado de efectivo incluye el fondo inicial, las ventas en efectivo y los
               retiros/ingresos del turno.
             </p>
+
+            {/* Movimientos de caja persistidos (apertura/cierre/retiros/ingresos) */}
+            <div className="mt-4 border-t border-slate-200 dark:border-slate-700 pt-4">
+              <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
+                Movimientos de caja
+              </h4>
+              {sessionMovements.length === 0 ? (
+                <p className="text-sm text-slate-400 dark:text-slate-500">
+                  Sin movimientos registrados en este turno.
+                </p>
+              ) : (
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {sessionMovements.map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex justify-between items-center px-3 py-1.5 bg-slate-50 dark:bg-slate-700/40 rounded-lg text-sm"
+                    >
+                      <div className="min-w-0">
+                        <span className="badge bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                          {MOVEMENT_LABELS[m.tipo] ?? m.tipo}
+                        </span>
+                        {m.motivo && (
+                          <span className="ml-2 text-xs text-slate-400 dark:text-slate-500 truncate">
+                            {m.motivo}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span
+                          className={`font-semibold tabular-nums ${
+                            m.monto > 0
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : m.monto < 0
+                                ? 'text-red-600 dark:text-red-400'
+                                : 'text-slate-500 dark:text-slate-400'
+                          }`}
+                        >
+                          {m.monto > 0 ? '+' : ''}
+                          {formatMoney(m.monto)}
+                        </span>
+                        <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">
+                          {new Date(m.fecha).toLocaleTimeString('es-MX', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Historial de cortes */}

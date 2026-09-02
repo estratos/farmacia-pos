@@ -60,6 +60,21 @@ export function getCashRevision(): number {
   return revision;
 }
 
+// --- Sincronización con el backend (handler inyectado por remoteApi) ---
+export type CashOp = 'open' | 'close' | 'withdrawal' | 'ingress';
+let syncHandler: ((op: CashOp, payload: Record<string, unknown>) => void) | null = null;
+
+/** remoteApi registra aquí el envío al backend (write-through/outbox). */
+export function setCashSyncHandler(
+  fn: ((op: CashOp, payload: Record<string, unknown>) => void) | null
+): void {
+  syncHandler = fn;
+}
+
+function notifySync(op: CashOp, payload: Record<string, unknown>): void {
+  syncHandler?.(op, payload);
+}
+
 export interface ExpectedCash {
   ventas: Record<PaymentMethod, { tickets: number; total: number }>;
   esperado: Record<PaymentMethod, number>;
@@ -97,6 +112,13 @@ export const cashService = {
     };
     saveData(MOVEMENTS_KEY, [movement, ...readMovements()]);
     bump();
+    notifySync('open', {
+      session_id: session.id,
+      caja: session.caja,
+      fondo: session.fondo,
+      cajero: session.cajero,
+      abierta_el: session.abierta_el,
+    });
     return session;
   },
 
@@ -129,6 +151,13 @@ export const cashService = {
     };
     saveData(MOVEMENTS_KEY, [movement, ...readMovements()]);
     bump();
+    notifySync(tipo === 'retiro' ? 'withdrawal' : 'ingress', {
+      session_id: session.id,
+      monto,
+      motivo: motivo || undefined,
+      fecha: movement.fecha,
+      usuario,
+    });
     return movement;
   },
 
@@ -212,7 +241,28 @@ export const cashService = {
 
     saveData(CUTS_KEY, [cut, ...readCuts()]);
     saveData(SESSION_KEY, { ...session, cerrada_el: cut.cerrado_el });
+
+    // Movimiento de cierre (auditoría local + sincronización)
+    const cierre: CashMovement = {
+      id: uuid(),
+      session_id: session.id,
+      tipo: 'cierre',
+      monto: 0,
+      motivo: `Corte de caja (diferencia ${cut.diferencia.total > 0 ? '+' : ''}${cut.diferencia.total})`,
+      fecha: cut.cerrado_el,
+      usuario: opts.cajero,
+    };
+    saveData(MOVEMENTS_KEY, [cierre, ...readMovements()]);
+
     bump();
+    notifySync('close', {
+      session_id: session.id,
+      cut_id: cut.id,
+      contado: cut.contado,
+      notas: cut.notas,
+      cajero: opts.cajero,
+      cerrado_el: cut.cerrado_el,
+    });
     return cut;
   },
 

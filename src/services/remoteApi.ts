@@ -12,6 +12,7 @@ import { saleService } from './saleService';
 import { customerService } from './customerService';
 import { outboxService } from './outbox';
 import { settingsService } from './settingsService';
+import { setCashSyncHandler } from './cashService';
 import type { SyncHandlers } from './syncEngine';
 import type {
   BCustomer,
@@ -464,6 +465,88 @@ export async function remoteDeleteCustomer(id: string, storeId: string) {
 }
 
 export { ApiError, OfflineError };
+
+// ---------------------------------------------------------------- Caja (sync)
+// Los movimientos de caja (apertura/cierre/retiros/ingresos) se persisten SIEMPRE
+// en local (cashService) y se sincronizan con el backend cuando este expone los
+// endpoints /cash/* (se detecta con una sonda; ver docs/cortes-de-caja.md §5.2).
+
+let cashRemoteSupported: boolean | null = null;
+
+async function probeCashRemote(): Promise<boolean> {
+  if (cashRemoteSupported !== null) return cashRemoteSupported;
+  try {
+    await apiRequest(`${API_PREFIX}/cash/current`);
+    cashRemoteSupported = true;
+  } catch (err) {
+    cashRemoteSupported = !(err instanceof ApiError && err.status === 404);
+  }
+  return cashRemoteSupported;
+}
+
+export async function remoteOpenCash(payload: Record<string, unknown>) {
+  return apiRequest(`${API_PREFIX}/cash/open`, { method: 'POST', body: payload });
+}
+
+export async function remoteCloseCash(payload: Record<string, unknown>) {
+  return apiRequest(`${API_PREFIX}/cash/close`, { method: 'POST', body: payload });
+}
+
+export async function remoteCashWithdrawal(payload: Record<string, unknown>) {
+  return apiRequest(`${API_PREFIX}/cash/withdrawal`, { method: 'POST', body: payload });
+}
+
+export async function remoteCashIngress(payload: Record<string, unknown>) {
+  return apiRequest(`${API_PREFIX}/cash/ingress`, { method: 'POST', body: payload });
+}
+
+let cashSyncRegistered = false;
+
+/** Registra el handler que cashService invoca tras cada movimiento local. */
+function registerCashSync(): void {
+  if (cashSyncRegistered) return;
+  cashSyncRegistered = true;
+  setCashSyncHandler(async (op, payload) => {
+    const storeId = getStoreId();
+    if (!storeId) return; // sin sesión de usuario → se mantiene local
+
+    const supported = await probeCashRemote();
+    if (!supported) {
+      // El backend aún no expone /cash: apertura/cierre quedan en local (durables)
+      console.info(
+        '[cash] El backend aún no expone /cash: los movimientos de caja se mantienen en local'
+      );
+      return;
+    }
+
+    const body = { client_op_id: uuid(), store_id: storeId, ...payload };
+    try {
+      switch (op) {
+        case 'open':
+          await remoteOpenCash(body);
+          break;
+        case 'close':
+          await remoteCloseCash(body);
+          break;
+        case 'withdrawal':
+          await remoteCashWithdrawal(body);
+          break;
+        case 'ingress':
+          await remoteCashIngress(body);
+          break;
+      }
+    } catch (err) {
+      if (err instanceof OfflineError) {
+        // Sin red: encolar para sincronizar al restaurar la conexión
+        outboxService.enqueue(`cash_${op}`, body);
+      } else {
+        console.warn('[cash] error al sincronizar:', err instanceof Error ? err.message : err);
+      }
+    }
+  });
+}
+
+registerCashSync();
 
 // ---------------------------------------------------------------- Write-through
 // Patrón: intentar el servidor central primero (write-through); si no hay red,
