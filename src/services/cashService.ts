@@ -113,6 +113,7 @@ export const cashService = {
     saveData(MOVEMENTS_KEY, [movement, ...readMovements()]);
     bump();
     notifySync('open', {
+      id: session.id, // id de cliente: el backend lo respeta (local == servidor)
       session_id: session.id,
       caja: session.caja,
       fondo: session.fondo,
@@ -152,6 +153,7 @@ export const cashService = {
     saveData(MOVEMENTS_KEY, [movement, ...readMovements()]);
     bump();
     notifySync(tipo === 'retiro' ? 'withdrawal' : 'ingress', {
+      id: movement.id, // id de cliente del movimiento
       session_id: session.id,
       remote_session_id: session.remote_session_id,
       monto,
@@ -268,6 +270,7 @@ export const cashService = {
 
     bump();
     notifySync('close', {
+      id: cut.id, // id de cliente del corte
       session_id: session.id,
       remote_session_id: session.remote_session_id,
       cut_id: cut.id,

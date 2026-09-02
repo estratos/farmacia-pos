@@ -526,10 +526,11 @@ function registerCashSync(): void {
     let body: Record<string, unknown>;
     switch (op) {
       case 'open': {
-        const p = payload as { caja?: string; fondo?: number; cajero?: string };
+        const p = payload as { id?: string; caja?: string; fondo?: number; cajero?: string };
         body = {
           client_op_id: clientOpId,
           store_id: storeId,
+          id: p.id, // el backend respeta el id del cliente (local == servidor)
           caja: p.caja,
           fondo: p.fondo ?? 0,
           cajero: p.cajero ?? 'Admin',
@@ -538,6 +539,7 @@ function registerCashSync(): void {
       }
       case 'close': {
         const p = payload as {
+          id?: string;
           session_id?: string;
           remote_session_id?: string;
           contado?: Partial<Record<string, number>>;
@@ -547,7 +549,8 @@ function registerCashSync(): void {
         body = {
           client_op_id: clientOpId,
           store_id: storeId,
-          // El backend asigna su propio id de sesión; se usa el remoto si se conoce
+          id: p.id, // id de cliente del corte
+          // Fallback para sesiones abiertas antes del soporte de id de cliente
           session_id: p.remote_session_id ?? p.session_id,
           contado_por_metodo: {
             efectivo: p.contado?.efectivo ?? 0,
@@ -562,6 +565,7 @@ function registerCashSync(): void {
       case 'withdrawal':
       case 'ingress': {
         const p = payload as {
+          id?: string;
           session_id?: string;
           remote_session_id?: string;
           monto?: number;
@@ -570,6 +574,7 @@ function registerCashSync(): void {
         body = {
           client_op_id: clientOpId,
           store_id: storeId,
+          id: p.id, // id de cliente del movimiento
           session_id: p.remote_session_id ?? p.session_id,
           monto: Math.abs(p.monto ?? 0),
           motivo: p.motivo,
@@ -584,10 +589,11 @@ function registerCashSync(): void {
       switch (op) {
         case 'open': {
           const res = (await remoteOpenCash(body)) as { session?: { id?: string } } | undefined;
-          // El backend genera su propio id de sesión: guardarlo para usarlo en
-          // retiros/ingresos/cierre (el id local difiere).
+          // Guarda el id remoto como respaldo (para sesiones abiertas antes del
+          // soporte de id de cliente; con id enviado, remoto == local).
           const remoteId = res?.session?.id;
-          const localId = (payload as { session_id?: string }).session_id;
+          const localId = (payload as { session_id?: string; id?: string }).session_id
+            ?? (payload as { id?: string }).id;
           if (remoteId && localId) {
             cashService.setRemoteSessionId(localId, remoteId);
           }
