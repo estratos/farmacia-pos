@@ -5,7 +5,7 @@ import TitleBar from '../ui/TitleBar';
 import { ToastProvider } from '../ui/Toast';
 import { applyTheme, getTheme } from '../../lib/theme';
 import { initSyncEngine, setSyncHandlers } from '../../services/syncEngine';
-import { getStoredAuth, login, remoteSyncHandlers } from '../../services/remoteApi';
+import { getStoredAuth, login, remoteSyncHandlers, reconcileLocalCatalog } from '../../services/remoteApi';
 import { setAuthToken } from '../../services/apiClient';
 import { settingsService } from '../../services/settingsService';
 
@@ -31,6 +31,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     if (stored) {
       setAuthToken(stored.token);
       setSyncHandlers(remoteSyncHandlers);
+      // Reconciliación del catálogo una vez por arranque (si falla, se reintenta
+      // en el siguiente arranque o con "Sincronizar ahora")
+      void reconcileLocalCatalog().catch(() => undefined);
       return;
     }
     const settings = settingsService.getSettings();
@@ -38,6 +41,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       try {
         await login(settings.apiUsername, settings.apiPassword);
         setSyncHandlers(remoteSyncHandlers);
+        void reconcileLocalCatalog().catch(() => undefined);
       } catch {
         // sin red o credenciales inválidas: se reintenta en el siguiente arranque
       }

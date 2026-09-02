@@ -34,6 +34,7 @@ export class ApiError extends Error {
 }
 
 let authToken: string | null = null;
+let unauthorizedHandler: (() => Promise<boolean>) | null = null;
 
 export function setAuthToken(token: string | null): void {
   authToken = token;
@@ -41,6 +42,14 @@ export function setAuthToken(token: string | null): void {
 
 export function getAuthToken(): string | null {
   return authToken;
+}
+
+/**
+ * Registra un handler que intenta re-autenticarse cuando una petición
+ * devuelve 401 (token caducado/inválido). Devuelve true si re-autenticó.
+ */
+export function setUnauthorizedHandler(fn: (() => Promise<boolean>) | null): void {
+  unauthorizedHandler = fn;
 }
 
 export function getApiBaseUrl(): string {
@@ -58,7 +67,11 @@ interface RequestOptions {
  * Ejecuta una petición a la API. Lanza OfflineError si no hay red y ApiError en
  * errores HTTP. Devuelve el JSON parseado.
  */
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function apiRequest<T>(
+  path: string,
+  options: RequestOptions = {},
+  _retried = false
+): Promise<T> {
   const { method = 'GET', body, headers, timeoutMs = REQUEST_TIMEOUT_MS } = options;
 
   let res: Response;
@@ -88,6 +101,18 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     } catch {
       // cuerpo no JSON
     }
+
+    // Re-autenticación automática ante 401 (token caducado/inválido) — una vez
+    if (
+      res.status === 401 &&
+      !_retried &&
+      unauthorizedHandler &&
+      !path.includes('/auth/login')
+    ) {
+      const reauthed = await unauthorizedHandler();
+      if (reauthed) return apiRequest<T>(path, options, true);
+    }
+
     throw new ApiError(res.status, message, detail);
   }
 

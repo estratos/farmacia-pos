@@ -4,13 +4,14 @@
  * (push del outbox + pull del feed de cambios), según la especificación OpenAPI
  * (server/public/api-docs/openapi.yaml) y docs/central-api-design.md.
  */
-import { apiRequest, setAuthToken, ApiError, OfflineError } from './apiClient';
+import { apiRequest, setAuthToken, setUnauthorizedHandler, ApiError, OfflineError } from './apiClient';
 import { loadData, saveData, uuid } from './storage';
 import { productService, type StockAdjustOptions } from './productService';
 import { movementService } from './movementService';
 import { saleService } from './saleService';
 import { customerService } from './customerService';
 import { outboxService } from './outbox';
+import { settingsService } from './settingsService';
 import type { SyncHandlers } from './syncEngine';
 import type {
   BCustomer,
@@ -54,6 +55,32 @@ export function clearAuth(): void {
   saveData<StoredAuth | null>(AUTH_KEY, null);
   setAuthToken(null);
 }
+
+// Re-autenticación automática: ante un 401, se intenta volver a entrar con las
+// credenciales guardadas en Configuración (token caducado o sesión perdida).
+let reauthInFlight: Promise<boolean> | null = null;
+
+function registerUnauthorizedHandler(): void {
+  setUnauthorizedHandler(async () => {
+    const s = settingsService.getSettings();
+    if (!s.apiUsername || !s.apiPassword) return false;
+    if (!reauthInFlight) {
+      reauthInFlight = (async () => {
+        try {
+          await login(s.apiUsername as string, s.apiPassword as string);
+          return true;
+        } catch {
+          return false;
+        } finally {
+          reauthInFlight = null;
+        }
+      })();
+    }
+    return reauthInFlight;
+  });
+}
+
+registerUnauthorizedHandler();
 
 export async function login(username: string, password: string): Promise<StoredAuth> {
   const res = await apiRequest<{ token: string; user: BUser; store: BStore }>(
@@ -241,10 +268,9 @@ async function pullChanges(storeId: string): Promise<void> {
     setSyncCursor(cursor);
     if (!res.has_more || res.changes.length === 0) break;
   }
-  // Reconciliación única del catálogo local con el servidor: sube los productos
-  // locales que el servidor no tiene (ej. seeds), para que las ventas no fallen
-  // con 404 "Producto no encontrado".
-  await reconcileLocalCatalog();
+  // NOTA: la reconciliación del catálogo ya NO se ejecuta en cada pull (evitaba
+  // spam de 403 si el token no tiene rol manager). Se ejecuta una vez al
+  // arrancar tras autenticarse y con el botón "Sincronizar ahora".
 }
 
 /**
@@ -303,8 +329,15 @@ export async function reconcileLocalCatalog(): Promise<number> {
         initial_stock: p.stock,
       });
       pushed += 1;
-    } catch {
-      // p. ej. 422 por barcode duplicado: se reintenta en el siguiente pull
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 403 || err.status === 401)) {
+        // Sin permisos (rol manager/admin) o sesión inválida: detener el intento
+        console.warn(
+          `[sync] No se pudo subir el producto "${p.name}" (${err.status}): ${err.message}`
+        );
+        return pushed;
+      }
+      // p. ej. 422 por barcode duplicado: se reintenta en el siguiente arranque
       failed += 1;
     }
   }

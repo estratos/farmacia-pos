@@ -3,7 +3,7 @@ import { Pill, Percent, Receipt, Info, Save, Plug, Unplug, LoaderCircle, Refresh
 import { settingsService, defaultSettings } from '../services/settingsService';
 import { useToast } from '../components/ui/Toast';
 import { getApiBaseUrl } from '../services/apiClient';
-import { getStoredAuth, login, clearAuth, remoteSyncHandlers } from '../services/remoteApi';
+import { getStoredAuth, login, clearAuth, remoteSyncHandlers, reconcileLocalCatalog } from '../services/remoteApi';
 import { setSyncHandlers, runSync } from '../services/syncEngine';
 import { productService } from '../services/productService';
 import type { AppSettings } from '../types';
@@ -53,8 +53,19 @@ function SettingsPage() {
     setSyncing(true);
     try {
       await runSync();
+      let pushed = 0;
+      try {
+        pushed = await reconcileLocalCatalog();
+      } catch {
+        // sin permisos (rol manager/admin) para crear productos en el catálogo
+      }
       const count = productService.getProducts().length;
-      showToast('success', `Catálogo sincronizado (${count} productos)`);
+      showToast(
+        'success',
+        pushed > 0
+          ? `Catálogo sincronizado (${count} productos, ${pushed} subidos)`
+          : `Catálogo sincronizado (${count} productos)`
+      );
     } catch {
       showToast('error', 'No se pudo sincronizar: revisa la conexión y las credenciales');
     } finally {
