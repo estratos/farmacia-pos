@@ -519,7 +519,60 @@ function registerCashSync(): void {
       return;
     }
 
-    const body = { client_op_id: uuid(), store_id: storeId, ...payload };
+    const clientOpId = uuid();
+    // Mapeo al contrato exacto del backend (CashController / CashService):
+    // - withdrawal/ingress: monto SIEMPRE positivo
+    // - close: contado_por_metodo {efectivo, tarjeta, transferencia}
+    let body: Record<string, unknown>;
+    switch (op) {
+      case 'open': {
+        const p = payload as { caja?: string; fondo?: number; cajero?: string };
+        body = {
+          client_op_id: clientOpId,
+          store_id: storeId,
+          caja: p.caja,
+          fondo: p.fondo ?? 0,
+          cajero: p.cajero ?? 'Admin',
+        };
+        break;
+      }
+      case 'close': {
+        const p = payload as {
+          session_id?: string;
+          contado?: Partial<Record<string, number>>;
+          notas?: string;
+          cajero?: string;
+        };
+        body = {
+          client_op_id: clientOpId,
+          store_id: storeId,
+          session_id: p.session_id,
+          contado_por_metodo: {
+            efectivo: p.contado?.efectivo ?? 0,
+            tarjeta: p.contado?.tarjeta ?? 0,
+            transferencia: p.contado?.transferencia ?? 0,
+          },
+          notas: p.notas,
+          cajero: p.cajero,
+        };
+        break;
+      }
+      case 'withdrawal':
+      case 'ingress': {
+        const p = payload as { session_id?: string; monto?: number; motivo?: string };
+        body = {
+          client_op_id: clientOpId,
+          store_id: storeId,
+          session_id: p.session_id,
+          monto: Math.abs(p.monto ?? 0),
+          motivo: p.motivo,
+        };
+        break;
+      }
+      default:
+        return;
+    }
+
     try {
       switch (op) {
         case 'open':
