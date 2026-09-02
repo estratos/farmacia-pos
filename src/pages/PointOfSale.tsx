@@ -6,7 +6,7 @@ import Receipt from '../components/sales/Receipt';
 import { useAppContext } from '../contexts/AppContext';
 import { useToast } from '../components/ui/Toast';
 import { settingsService } from '../services/settingsService';
-import { saleService } from '../services/saleService';
+import { writeCreateSale } from '../services/remoteApi';
 import type { CartItem, PaymentMethod, Product, Sale } from '../types';
 
 function PointOfSale() {
@@ -26,11 +26,11 @@ function PointOfSale() {
     dispatch({ type: 'ADD_TO_CART', payload: product });
   };
 
-  const handleRemoveFromCart = (productId: number) => {
+  const handleRemoveFromCart = (productId: string) => {
     dispatch({ type: 'REMOVE_FROM_CART', payload: productId });
   };
 
-  const handleUpdateQuantity = (productId: number, quantity: number) => {
+  const handleUpdateQuantity = (productId: string, quantity: number) => {
     if (quantity <= 0) {
       handleRemoveFromCart(productId);
       return;
@@ -38,7 +38,7 @@ function PointOfSale() {
     dispatch({ type: 'UPDATE_CART_QUANTITY', payload: { id: productId, quantity } });
   };
 
-  const handleConfirmSale = (payload: {
+  const handleConfirmSale = async (payload: {
     items: CartItem[];
     subtotal: number;
     tax: number;
@@ -47,11 +47,16 @@ function PointOfSale() {
     received?: number;
     change?: number;
   }) => {
-    const sale = saleService.createSale(payload, { user: state.user?.name });
-    dispatch({ type: 'CLEAR_CART' });
-    setShowCheckout(false);
-    setLastSale(sale);
-    showToast('success', `Venta #${String(sale.id).padStart(5, '0')} registrada`);
+    try {
+      const sale = await writeCreateSale(payload, { user: state.user?.name });
+      dispatch({ type: 'CLEAR_CART' });
+      setShowCheckout(false);
+      setLastSale(sale);
+      showToast('success', `Venta ${sale.reference ? `${sale.reference} ` : ''}registrada`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'No se pudo procesar la venta';
+      showToast('error', message);
+    }
   };
 
   return (

@@ -9,7 +9,7 @@ Los datos se guardan **localmente** en el equipo (localStorage), sin necesidad d
 - **Punto de Venta**: búsqueda por nombre o código de barras (soporta lector de código de barras: escanea y presiona Enter), carrito con IVA configurable, validación de stock, aviso de medicamentos que requieren receta.
 - **Cobro**: efectivo (con cálculo de cambio), tarjeta o transferencia.
 - **Recibo / Ticket**: vista previa en formato térmico de 80mm e impresión (impresora del sistema o térmica con controlador genérico).
-- **Inventario**: alta, edición, baja y búsqueda de productos; alertas de stock bajo; campos de lote y fecha de expiración.
+- **Inventario**: alta, edición, baja y búsqueda de productos (por nombre, código de barras o **SKU**); alertas de stock bajo; campos de lote y fecha de expiración; **imagen del producto** servida por el backend (URL `image_url`, sin copia local).
 - **Movimientos de inventario (auditoría)**: cada cambio de stock queda registrado con tipo (stock inicial, entrada/compra, venta, devolución, ajuste, merma), cantidad con signo, stock antes/después, referencia (ej. número de venta), motivo, proveedor, usuario y fecha. Pantalla dedicada con filtros (tipo, producto, rango de fechas, búsqueda) y resúmenes de entradas/salidas/neto. Registro *append-only*: no se edita ni elimina.
 - **Clientes**: registro y administración de clientes.
 - **Reportes**: ventas por día, productos más vendidos e historial de ventas.
@@ -37,6 +37,28 @@ npm run dev
 # Terminal 2: Electron en modo desarrollo (carga el servidor de Vite)
 npm run start
 ```
+
+### Conexión con el backend central
+
+La app se conecta al backend central (ver `docs/central-api-design.md` y la OpenAPI en
+`/api-docs/`). La URL se configura con `VITE_API_BASE_URL` (copia `.env.example` a `.env`;
+por defecto `http://localhost:8080`).
+
+**Implementado:**
+- `src/services/apiClient.ts` — cliente HTTP (auth, timeout, detección de offline).
+- `src/services/remoteApi.ts` — auth (login), endpoints write-through (products, movements,
+  sales, void, customers) y sync (`sync/push` + `sync/changes` con cursor e idempotencia).
+- `src/services/outbox.ts` — cola persistente de operaciones pendientes.
+- `src/services/syncEngine.ts` — push/pull con backoff y eventos de conectividad.
+- **Write-through**: al crear un movimiento o una venta, si hay conexión se envía al
+  servidor central en ese momento y se aplica su respuesta autoritativa (stock calculado
+  por el servidor, FEFO por lotes). Sin conexión, la operación se aplica en local y se
+  encola en el outbox para sincronizar al restaurar la conexión.
+- **Auth**: sección "Conexión" en Configuración (usuario/contraseña) con auto-login al
+  arrancar; el indicador de sincronización del Header/TitleBar muestra el estado.
+
+Los IDs son UUID generados por el cliente (migración automática de los datos locales
+existentes en el primer arranque).
 
 ## Verificación de tipos
 

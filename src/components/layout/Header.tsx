@@ -3,6 +3,7 @@ import { Clock, Sun, Moon, CalendarDays } from 'lucide-react';
 import { settingsService } from '../../services/settingsService';
 import { useAppContext } from '../../contexts/AppContext';
 import { applyTheme, getTheme } from '../../lib/theme';
+import SyncIndicator from '../ui/SyncIndicator';
 
 function Header() {
   const { state } = useAppContext();
@@ -50,6 +51,8 @@ function Header() {
               {currentTime}
             </span>
           </div>
+
+          <SyncIndicator />
 
           <button
             onClick={handleToggleTheme}

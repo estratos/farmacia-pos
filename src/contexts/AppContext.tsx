@@ -14,8 +14,8 @@ interface AppState {
 
 type AppAction =
   | { type: 'ADD_TO_CART'; payload: Product }
-  | { type: 'REMOVE_FROM_CART'; payload: number }
-  | { type: 'UPDATE_CART_QUANTITY'; payload: { id: number; quantity: number } }
+  | { type: 'REMOVE_FROM_CART'; payload: string }
+  | { type: 'UPDATE_CART_QUANTITY'; payload: { id: string; quantity: number } }
   | { type: 'CLEAR_CART' };
 
 const initialState: AppState = {

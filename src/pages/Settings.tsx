@@ -1,12 +1,16 @@
 import { useState } from 'react';
-import { Pill, Percent, Receipt, Info, Save } from 'lucide-react';
+import { Pill, Percent, Receipt, Info, Save, Plug, Unplug, LoaderCircle } from 'lucide-react';
 import { settingsService, defaultSettings } from '../services/settingsService';
 import { useToast } from '../components/ui/Toast';
+import { getApiBaseUrl } from '../services/apiClient';
+import { getStoredAuth, login, clearAuth, remoteSyncHandlers } from '../services/remoteApi';
+import { setSyncHandlers } from '../services/syncEngine';
 import type { AppSettings } from '../types';
 
 function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings>(() => settingsService.getSettings());
   const { showToast } = useToast();
+  const [connecting, setConnecting] = useState(false);
 
   const handleSave = () => {
     settingsService.saveSettings(settings);
@@ -15,6 +19,31 @@ function SettingsPage() {
 
   const set = (patch: Partial<AppSettings>) => {
     setSettings((prev) => ({ ...prev, ...patch }));
+  };
+
+  const auth = getStoredAuth();
+
+  const handleConnect = async () => {
+    if (!settings.apiUsername || !settings.apiPassword) {
+      showToast('error', 'Ingresa usuario y contraseña del servidor central');
+      return;
+    }
+    setConnecting(true);
+    try {
+      settingsService.saveSettings(settings);
+      const result = await login(settings.apiUsername, settings.apiPassword);
+      setSyncHandlers(remoteSyncHandlers);
+      showToast('success', `Conectado a ${result.store.name}`);
+    } catch {
+      showToast('error', 'No se pudo conectar: revisa credenciales o la conexión');
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleDisconnect = () => {
+    clearAuth();
+    showToast('info', 'Sesión cerrada');
   };
 
   return (
@@ -107,6 +136,82 @@ function SettingsPage() {
                 placeholder={defaultSettings.receiptFooter}
               />
             </div>
+          </div>
+        </section>
+
+        {/* Conexión con el servidor central */}
+        <section>
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">
+            <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+              <Plug className="w-4 h-4" />
+            </span>
+            Conexión con el servidor central
+          </h3>
+          <div className="space-y-4 pl-11">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                URL de la API
+              </label>
+              <input className="input-field" value={getApiBaseUrl()} readOnly disabled />
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                Se configura con VITE_API_BASE_URL (ver .env.example)
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Usuario
+                </label>
+                <input
+                  className="input-field"
+                  value={settings.apiUsername ?? ''}
+                  onChange={(e) => set({ apiUsername: e.target.value })}
+                  placeholder="admin"
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Contraseña
+                </label>
+                <input
+                  type="password"
+                  className="input-field"
+                  value={settings.apiPassword ?? ''}
+                  onChange={(e) => set({ apiPassword: e.target.value })}
+                  placeholder="••••••••"
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+
+            {auth ? (
+              <div className="flex items-center justify-between px-3 py-2.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-lg">
+                <div className="text-sm text-emerald-700 dark:text-emerald-300">
+                  <p className="font-semibold">Conectado a {auth.store.name}</p>
+                  <p className="text-xs">
+                    {auth.user.name} ({auth.user.role}) — tienda {auth.store.id.slice(0, 8)}
+                  </p>
+                </div>
+                <button onClick={handleDisconnect} className="btn-ghost text-sm">
+                  <Unplug className="w-4 h-4" />
+                  Desconectar
+                </button>
+              </div>
+            ) : (
+              <button onClick={handleConnect} disabled={connecting} className="btn-success">
+                {connecting ? (
+                  <LoaderCircle className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Plug className="w-4 h-4" />
+                )}
+                {connecting ? 'Conectando…' : 'Conectar al servidor'}
+              </button>
+            )}
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              Al conectarte, la app sincroniza el catálogo y el inventario. Sin conexión, todo
+              sigue funcionando en local y los cambios se sincronizan al restaurar la conexión.
+            </p>
           </div>
         </section>
 

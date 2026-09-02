@@ -18,7 +18,7 @@ const PAYMENT_LABELS: Record<string, string> = {
 };
 
 function Reports() {
-  const [expandedSale, setExpandedSale] = useState<number | null>(null);
+  const [expandedSale, setExpandedSale] = useState<string | null>(null);
 
   const data = useMemo(() => {
     const sales = saleService.getSales();
@@ -207,7 +207,7 @@ function Reports() {
                 >
                   <div className="flex items-center gap-3 text-left">
                     <span className="font-semibold text-slate-900 dark:text-white tabular-nums">
-                      #{String(sale.id).padStart(5, '0')}
+                      {sale.reference ?? `#${String(sale.id).slice(0, 8)}`}
                     </span>
                     <span className="text-sm text-slate-500 dark:text-slate-400">
                       {new Date(sale.date).toLocaleString('es-MX')}

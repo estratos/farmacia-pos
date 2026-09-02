@@ -1,4 +1,4 @@
-import { loadData, saveData, nextId } from './storage';
+import { loadData, saveData, uuid } from './storage';
 import type { Customer } from '../types';
 
 const KEY = 'customers';
@@ -16,7 +16,7 @@ export const customerService = {
     return read();
   },
 
-  getById(id: number): Customer | undefined {
+  getById(id: string): Customer | undefined {
     return read().find((c) => c.id === id);
   },
 
@@ -31,18 +31,21 @@ export const customerService = {
     );
   },
 
-  createCustomer(data: Omit<Customer, 'id' | 'created_at'>): Customer {
+  createCustomer(
+    data: Omit<Customer, 'id' | 'created_at'>,
+    opts?: { id?: string }
+  ): Customer {
     const customers = read();
     const customer: Customer = {
       ...data,
-      id: nextId(customers),
+      id: opts?.id ?? uuid(),
       created_at: new Date().toISOString(),
     };
     write([...customers, customer]);
     return customer;
   },
 
-  updateCustomer(id: number, data: Partial<Customer>): Customer | undefined {
+  updateCustomer(id: string, data: Partial<Customer>): Customer | undefined {
     const customers = read();
     const idx = customers.findIndex((c) => c.id === id);
     if (idx === -1) return undefined;
@@ -52,7 +55,19 @@ export const customerService = {
     return updated;
   },
 
-  deleteCustomer(id: number): void {
+  deleteCustomer(id: string): void {
     write(read().filter((c) => c.id !== id));
+  },
+
+  /** Aplica un cliente del servidor (upsert). */
+  upsertRemote(customer: Customer): void {
+    const customers = read();
+    const idx = customers.findIndex((c) => c.id === customer.id);
+    if (idx === -1) {
+      write([customer, ...customers]);
+    } else {
+      customers[idx] = { ...customers[idx], ...customer };
+      write(customers);
+    }
   },
 };

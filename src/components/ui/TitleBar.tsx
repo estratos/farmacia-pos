@@ -1,4 +1,5 @@
 import { Minus, Square, X, Pill } from 'lucide-react';
+import SyncIndicator from './SyncIndicator';
 
 const TitleBar: React.FC = () => {
   const handleMinimize = () => window.electronAPI?.minimizeWindow?.();
@@ -14,28 +15,31 @@ const TitleBar: React.FC = () => {
         <span className="text-sm font-semibold tracking-tight">Farmacia POS</span>
       </div>
 
-      <div className="flex space-x-1 non-draggable">
-        <button
-          onClick={handleMinimize}
-          className="w-8 h-7 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center transition-colors"
-          title="Minimizar"
-        >
-          <Minus className="w-4 h-4" />
-        </button>
-        <button
-          onClick={handleMaximize}
-          className="w-8 h-7 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center transition-colors"
-          title="Maximizar"
-        >
-          <Square className="w-3.5 h-3.5" />
-        </button>
-        <button
-          onClick={handleClose}
-          className="w-8 h-7 rounded-md hover:bg-red-600 hover:text-white flex items-center justify-center transition-colors"
-          title="Cerrar"
-        >
-          <X className="w-4 h-4" />
-        </button>
+      <div className="flex items-center gap-3 non-draggable">
+        <SyncIndicator />
+        <div className="flex space-x-1">
+          <button
+            onClick={handleMinimize}
+            className="w-8 h-7 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center transition-colors"
+            title="Minimizar"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+          <button
+            onClick={handleMaximize}
+            className="w-8 h-7 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center transition-colors"
+            title="Maximizar"
+          >
+            <Square className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={handleClose}
+            className="w-8 h-7 rounded-md hover:bg-red-600 hover:text-white flex items-center justify-center transition-colors"
+            title="Cerrar"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </div>
   );

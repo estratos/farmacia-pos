@@ -27,7 +27,7 @@ const TYPES: MovementType[] = [
 
 function Movements() {
   const [type, setType] = useState<MovementType | 'all'>('all');
-  const [productId, setProductId] = useState<number | 'all'>('all');
+  const [productId, setProductId] = useState<string | 'all'>('all');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [query, setQuery] = useState('');
@@ -41,7 +41,7 @@ function Movements() {
 
   // Opciones de producto derivadas de los movimientos (incluye productos eliminados)
   const productOptions = useMemo(() => {
-    const map = new Map<number, string>();
+    const map = new Map<string, string>();
     for (const m of movementService.getMovements()) {
       if (!map.has(m.product_id)) map.set(m.product_id, m.product_name);
     }
@@ -157,7 +157,7 @@ function Movements() {
               className="input-field py-2"
               value={productId}
               onChange={(e) =>
-                setProductId(e.target.value === 'all' ? 'all' : Number(e.target.value))
+                setProductId(e.target.value === 'all' ? 'all' : e.target.value)
               }
             >
               <option value="all">Todos</option>

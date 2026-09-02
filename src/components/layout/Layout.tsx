@@ -4,6 +4,10 @@ import Header from './Header';
 import TitleBar from '../ui/TitleBar';
 import { ToastProvider } from '../ui/Toast';
 import { applyTheme, getTheme } from '../../lib/theme';
+import { initSyncEngine, setSyncHandlers } from '../../services/syncEngine';
+import { getStoredAuth, login, remoteSyncHandlers } from '../../services/remoteApi';
+import { setAuthToken } from '../../services/apiClient';
+import { settingsService } from '../../services/settingsService';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,7 +18,31 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   useEffect(() => {
     applyTheme(getTheme());
+    // Motor de sincronización (conectividad + estado). Los handlers se conectan
+    // tras autenticarse (ver bootstrapAuth).
+    initSyncEngine();
+    void bootstrapAuth();
   }, []);
+
+  // Restaura la sesión o inicia sesión con las credenciales guardadas, y conecta
+  // el syncEngine al backend central.
+  async function bootstrapAuth() {
+    const stored = getStoredAuth();
+    if (stored) {
+      setAuthToken(stored.token);
+      setSyncHandlers(remoteSyncHandlers);
+      return;
+    }
+    const settings = settingsService.getSettings();
+    if (settings.apiUsername && settings.apiPassword) {
+      try {
+        await login(settings.apiUsername, settings.apiPassword);
+        setSyncHandlers(remoteSyncHandlers);
+      } catch {
+        // sin red o credenciales inválidas: se reintenta en el siguiente arranque
+      }
+    }
+  }
 
   return (
     <ToastProvider>

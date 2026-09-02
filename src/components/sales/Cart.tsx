@@ -5,8 +5,8 @@ import type { CartItem } from '../../types';
 
 interface CartProps {
   items: CartItem[];
-  onUpdateQuantity: (productId: number, quantity: number) => void;
-  onRemoveItem: (productId: number) => void;
+  onUpdateQuantity: (productId: string, quantity: number) => void;
+  onRemoveItem: (productId: string) => void;
   onCheckout: () => void;
 }
 

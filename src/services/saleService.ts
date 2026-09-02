@@ -1,4 +1,4 @@
-import { loadData, saveData, nextId } from './storage';
+import { loadData, saveData, uuid } from './storage';
 import { productService } from './productService';
 import type { Sale } from '../types';
 
@@ -17,17 +17,17 @@ export const saleService = {
     return read();
   },
 
-  getSaleById(id: number): Sale | undefined {
+  getSaleById(id: string): Sale | undefined {
     return read().find((s) => s.id === id);
   },
 
   createSale(
     sale: Omit<Sale, 'id' | 'date'>,
-    opts?: { user?: string }
+    opts?: { user?: string; id?: string }
   ): Sale {
     const sales = read();
-    const id = nextId(sales);
-    const reference = `VENTA-${String(id).padStart(5, '0')}`;
+    const id = opts?.id ?? uuid();
+    const reference = `VENTA-${String(id).slice(0, 8)}`;
 
     // Descontar stock de cada producto vendido y registrar el movimiento
     for (const item of sale.items) {
@@ -44,8 +44,20 @@ export const saleService = {
     return record;
   },
 
-  deleteSale(id: number): void {
+  deleteSale(id: string): void {
     write(read().filter((s) => s.id !== id));
+  },
+
+  /** Aplica una venta del servidor (si existe, reemplaza — ej. anulación). */
+  upsertRemote(sale: Sale): void {
+    const sales = read();
+    const idx = sales.findIndex((s) => s.id === sale.id);
+    if (idx === -1) {
+      write([sale, ...sales]);
+    } else {
+      sales[idx] = sale;
+      write(sales);
+    }
   },
 
   /** Ventas registradas hoy (fecha local). */

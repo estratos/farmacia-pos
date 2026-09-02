@@ -18,6 +18,8 @@ import { useToast } from '../components/ui/Toast';
 import { useAppContext } from '../contexts/AppContext';
 import { productService } from '../services/productService';
 import { movementService, MOVEMENT_LABELS } from '../services/movementService';
+import { writeCreateProduct, writeUpdateProduct, writeDeleteProduct, writeAdjustStock } from '../services/remoteApi';
+import ProductThumb from '../components/products/ProductThumb';
 import { formatMoney } from '../services/storage';
 import type { InventoryMovement, MovementType, Product } from '../types';
 
@@ -27,6 +29,7 @@ interface ProductForm {
   price: string;
   stock: string;
   barcode: string;
+  sku: string;
   category: string;
   requires_prescription: boolean;
   controlled: boolean;
@@ -40,6 +43,7 @@ const emptyForm: ProductForm = {
   price: '',
   stock: '',
   barcode: '',
+  sku: '',
   category: '',
   requires_prescription: false,
   controlled: false,
@@ -49,7 +53,12 @@ const emptyForm: ProductForm = {
 
 type StockAction = 'purchase' | 'adjustment' | 'shrinkage';
 
-const STOCK_ACTIONS: { value: StockAction; label: string; icon: React.ComponentType<{ className?: string }>; color: string }[] = [
+const STOCK_ACTIONS: {
+  value: StockAction;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+}[] = [
   { value: 'purchase', label: 'Entrada', icon: PackagePlus, color: 'text-emerald-600 dark:text-emerald-400' },
   { value: 'adjustment', label: 'Ajuste', icon: SlidersHorizontal, color: 'text-amber-600 dark:text-amber-400' },
   { value: 'shrinkage', label: 'Merma', icon: PackageMinus, color: 'text-red-600 dark:text-red-400' },
@@ -59,7 +68,7 @@ function Inventory() {
   const [products, setProducts] = useState<Product[]>(() => productService.getProducts());
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
@@ -94,6 +103,7 @@ function Inventory() {
       price: String(product.price),
       stock: String(product.stock),
       barcode: product.barcode,
+      sku: product.sku ?? '',
       category: product.category,
       requires_prescription: product.requires_prescription,
       controlled: product.controlled,
@@ -104,15 +114,19 @@ function Inventory() {
     setShowForm(true);
   };
 
-  const handleDelete = (product: Product) => {
+  const handleDelete = async (product: Product) => {
     if (window.confirm(`¿Eliminar "${product.name}" del inventario?`)) {
-      productService.deleteProduct(product.id);
-      refresh();
-      showToast('success', 'Producto eliminado');
+      try {
+        await writeDeleteProduct(product.id);
+        refresh();
+        showToast('success', 'Producto eliminado');
+      } catch (err) {
+        showToast('error', err instanceof Error ? err.message : 'No se pudo eliminar');
+      }
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.name.trim()) {
       setError('El nombre es obligatorio');
       return;
@@ -134,6 +148,7 @@ function Inventory() {
       price,
       stock,
       barcode: form.barcode.trim() || `750${Date.now()}`,
+      sku: form.sku.trim() || undefined,
       category: form.category.trim() || 'General',
       requires_prescription: form.requires_prescription,
       controlled: form.controlled,
@@ -141,15 +156,19 @@ function Inventory() {
       lot_number: form.lot_number.trim() || undefined,
     };
 
-    if (editingId !== null) {
-      productService.updateProduct(editingId, data, { user: userName });
-      showToast('success', 'Producto actualizado');
-    } else {
-      productService.createProduct(data, { user: userName });
-      showToast('success', 'Producto agregado');
+    try {
+      if (editingId !== null) {
+        await writeUpdateProduct(editingId, data, { user: userName });
+        showToast('success', 'Producto actualizado');
+      } else {
+        await writeCreateProduct(data, { user: userName });
+        showToast('success', 'Producto agregado');
+      }
+      refresh();
+      setShowForm(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al guardar el producto');
     }
-    refresh();
-    setShowForm(false);
   };
 
   // ---- Modal de stock ----
@@ -164,7 +183,7 @@ function Inventory() {
     setRecentMovements(movementService.getByProduct(product.id).slice(0, 6));
   };
 
-  const handleStockSubmit = () => {
+  const handleStockSubmit = async () => {
     if (!stockProduct) return;
     const qty = parseFloat(stockQty);
     if (isNaN(qty) || qty <= 0) {
@@ -195,25 +214,29 @@ function Inventory() {
     }
 
     const cost = parseFloat(stockCost);
-    productService.adjustStock(stockProduct.id, delta, {
-      type,
-      reason,
-      supplier: stockAction === 'purchase' ? stockSupplier.trim() || undefined : undefined,
-      unitPrice: !isNaN(cost) && cost > 0 ? cost : stockProduct.price,
-      user: userName,
-    });
-    refresh();
-    setStockProduct(productService.getById(stockProduct.id) ?? stockProduct);
-    setRecentMovements(movementService.getByProduct(stockProduct.id).slice(0, 6));
-    setStockQty('');
-    setStockReason('');
-    setStockSupplier('');
-    setStockCost('');
-    setStockError(null);
-    showToast(
-      'success',
-      `${MOVEMENT_LABELS[type]}: ${delta > 0 ? '+' : ''}${qty} uds registrada`
-    );
+    try {
+      await writeAdjustStock(stockProduct.id, delta, {
+        type,
+        reason,
+        supplier: stockAction === 'purchase' ? stockSupplier.trim() || undefined : undefined,
+        unitPrice: !isNaN(cost) && cost > 0 ? cost : stockProduct.price,
+        user: userName,
+      });
+      refresh();
+      setStockProduct(productService.getById(stockProduct.id) ?? stockProduct);
+      setRecentMovements(movementService.getByProduct(stockProduct.id).slice(0, 6));
+      setStockQty('');
+      setStockReason('');
+      setStockSupplier('');
+      setStockCost('');
+      setStockError(null);
+      showToast(
+        'success',
+        `${MOVEMENT_LABELS[type]}: ${delta > 0 ? '+' : ''}${qty} uds registrada`
+      );
+    } catch (err) {
+      setStockError(err instanceof Error ? err.message : 'Error al registrar el movimiento');
+    }
   };
 
   return (
@@ -260,15 +283,18 @@ function Inventory() {
                 <tr key={product.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors">
                   <td className="table-cell">
                     <div className="flex items-center gap-3">
-                      <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
-                        <Package className="w-4 h-4" />
-                      </span>
+                      <ProductThumb
+                        src={product.image_url}
+                        name={product.name}
+                        className="w-10 h-10 rounded-lg"
+                      />
                       <div>
                         <div className="font-medium text-slate-900 dark:text-white">
                           {product.name}
                         </div>
                         <div className="text-xs text-slate-400 dark:text-slate-500">
                           Código: {product.barcode}
+                          {product.sku ? ` · SKU: ${product.sku}` : ''}
                         </div>
                       </div>
                     </div>
@@ -376,6 +402,25 @@ function Inventory() {
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
               />
             </div>
+            {editingId !== null &&
+              (() => {
+                const current = productService.getById(editingId);
+                if (!current?.image_url) return null;
+                return (
+                  <div className="md:col-span-2 flex items-center gap-3 px-3 py-2.5 bg-slate-50 dark:bg-slate-700/40 rounded-lg">
+                    <ProductThumb src={current.image_url} name={current.name} className="w-12 h-12 rounded-lg" />
+                    <div className="text-sm text-slate-500 dark:text-slate-400">
+                      <p className="font-medium text-slate-700 dark:text-slate-200">
+                        Imagen del producto
+                      </p>
+                      <p className="text-xs">
+                        La asigna el backend (importación WooCommerce); se muestra desde la URL
+                        que entrega la API.
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Precio *
@@ -409,6 +454,17 @@ function Inventory() {
                 className="input-field"
                 value={form.barcode}
                 onChange={(e) => setForm({ ...form, barcode: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                SKU
+              </label>
+              <input
+                className="input-field"
+                value={form.sku}
+                onChange={(e) => setForm({ ...form, sku: e.target.value })}
+                placeholder="Ej. PAM-500 (proveedor/WooCommerce)"
               />
             </div>
             <div>

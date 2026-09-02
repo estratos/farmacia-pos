@@ -1,15 +1,21 @@
 export interface Product {
-  id: number;
+  id: string; // UUID (generado por el cliente; coincide con el backend central)
   name: string;
   description: string;
   price: number;
   stock: number;
   barcode: string;
+  sku?: string; // SKU del proveedor/WooCommerce (backend)
   category: string;
   requires_prescription: boolean;
   controlled: boolean;
   expiration_date?: string;
   lot_number?: string;
+  image_url?: string; // URL absoluta de la imagen (backend; se usa directo, sin copia local)
+  rev?: number; // versión del catálogo (servidor) — para concurrencia
+  updated_at?: string;
+  deleted_at?: string | null;
+  price_override?: number | null; // precio propio de la tienda (backend)
 }
 
 export interface CartItem extends Product {
@@ -19,7 +25,8 @@ export interface CartItem extends Product {
 export type PaymentMethod = 'efectivo' | 'tarjeta' | 'transferencia';
 
 export interface Sale {
-  id: number;
+  id: string; // UUID
+  reference?: string; // ej. VENTA-00001 (servidor)
   items: CartItem[];
   subtotal: number;
   tax: number;
@@ -28,15 +35,21 @@ export interface Sale {
   payment_method: PaymentMethod;
   received?: number;
   change?: number;
-  customer_id?: number;
+  customer_id?: string;
+  cashier_name?: string;
+  status?: 'completed' | 'voided';
 }
 
 export interface Customer {
-  id: number;
+  id: string; // UUID
   name: string;
   phone: string;
   email: string;
   created_at: string;
+  rfc?: string;
+  razon_social?: string;
+  rev?: number;
+  deleted_at?: string | null;
 }
 
 export interface AppSettings {
@@ -45,6 +58,12 @@ export interface AppSettings {
   taxRate: number; // porcentaje de IVA, ej. 16
   receiptFooter: string;
   theme?: 'light' | 'dark';
+  // Conexión con el backend central
+  apiUrl?: string;
+  apiUsername?: string;
+  apiPassword?: string;
+  apiDeviceKey?: string;
+  storeId?: string;
 }
 
 /**
@@ -58,7 +77,8 @@ export type MovementType =
   | 'sale' // venta (generado automáticamente)
   | 'return' // devolución de cliente
   | 'adjustment' // ajuste manual (conteo, corrección)
-  | 'shrinkage'; // merma (daño, vencimiento, pérdida)
+  | 'shrinkage' // merma (daño, vencimiento, pérdida)
+  | 'purchase_return'; // devolución de compra (anulación de compra)
 
 /**
  * Movimiento de inventario (auditoría).
@@ -66,8 +86,8 @@ export type MovementType =
  * reference) para poder sincronizarse con el backend después.
  */
 export interface InventoryMovement {
-  id: number;
-  product_id: number;
+  id: string; // UUID
+  product_id: string; // UUID del producto
   product_name: string; // snapshot al momento del movimiento
   product_barcode: string; // snapshot
   type: MovementType;
@@ -79,6 +99,9 @@ export interface InventoryMovement {
   reason?: string; // motivo (ajustes, mermas, devoluciones)
   supplier?: string; // proveedor (compras)
   user: string;
+  user_id?: string;
+  lot_number?: string; // lote consumido/acreditado (FEFO)
+  expiration_date?: string;
   notes?: string;
   created_at: string; // ISO 8601
 }

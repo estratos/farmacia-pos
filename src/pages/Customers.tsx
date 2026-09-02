@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, Search, Users, Phone, Mail } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
 import { customerService } from '../services/customerService';
+import { writeCreateCustomer, writeUpdateCustomer, writeDeleteCustomer } from '../services/remoteApi';
 import type { Customer } from '../types';
 
 interface CustomerForm {
@@ -17,7 +18,7 @@ function Customers() {
   const [customers, setCustomers] = useState<Customer[]>(() => customerService.getCustomers());
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CustomerForm>(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
@@ -39,28 +40,36 @@ function Customers() {
     setShowForm(true);
   };
 
-  const handleDelete = (customer: Customer) => {
+  const handleDelete = async (customer: Customer) => {
     if (window.confirm(`¿Eliminar al cliente "${customer.name}"?`)) {
-      customerService.deleteCustomer(customer.id);
-      refresh();
-      showToast('success', 'Cliente eliminado');
+      try {
+        await writeDeleteCustomer(customer.id);
+        refresh();
+        showToast('success', 'Cliente eliminado');
+      } catch (err) {
+        showToast('error', err instanceof Error ? err.message : 'No se pudo eliminar');
+      }
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.name.trim()) {
       setError('El nombre es obligatorio');
       return;
     }
-    if (editingId !== null) {
-      customerService.updateCustomer(editingId, form);
-      showToast('success', 'Cliente actualizado');
-    } else {
-      customerService.createCustomer(form);
-      showToast('success', 'Cliente agregado');
+    try {
+      if (editingId !== null) {
+        await writeUpdateCustomer(editingId, form);
+        showToast('success', 'Cliente actualizado');
+      } else {
+        await writeCreateCustomer(form);
+        showToast('success', 'Cliente agregado');
+      }
+      refresh();
+      setShowForm(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al guardar el cliente');
     }
-    refresh();
-    setShowForm(false);
   };
 
   return (

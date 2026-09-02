@@ -13,6 +13,12 @@
 > - Catálogo de productos **compartido** (global) con **stock por tienda**.
 > - Anulación de ventas (`void`) **incluida en el MVP**.
 > - Secuencia de venta `VENTA-{n}` por tienda.
+> - **Base de datos**: **SQLite en desarrollo local** (sin credenciales ni servidor) y
+>   **MariaDB en producción y staging**. El esquema Doctrine es portable: en despliegue solo
+>   cambia `DATABASE_URL` y se ejecuta la migración. **No se reutilizan credenciales de otros
+>   proyectos.**
+> - **Workspace del backend**: `C:\Users\julio\local-repos\farmacia-central` (repositorio
+>   separado del frontend).
 
 ---
 
@@ -444,7 +450,7 @@ change_log para que las tiendas reciban el estado corregido.
 |---|---|
 | Runtime | PHP 8.3+ / Symfony 7.4 |
 | ORM | Doctrine ORM + Migrations |
-| BD | PostgreSQL (transacciones, `SELECT FOR UPDATE`, bigserial cursor) |
+| BD | **SQLite en desarrollo local** (`pdo_sqlite`); **MariaDB en producción/staging** (`pdo_mysql`). Tipos Doctrine portables (uuid → string, json, bigint autoincrement); el cursor del change_log usa autoincrement nativo |
 | Auth | lexik/jwt-authentication-bundle (JWT) + API key por dispositivo |
 | Validación | Symfony Validator (constraints) |
 | API | Controladores REST manuales o API Platform (opcional) |
@@ -473,7 +479,7 @@ server/
 
 | Fase | Alcance | Criterio de aceptación |
 |---|---|---|
-| **1. MVP backend** | Entidades + auth + catálogo CRUD + `POST /movements` + `POST /sales` + `POST /sales/{id}/void` (transaccionales) + `sync/push` + `sync/changes` | Postman: crear producto (genera `initial`), movimiento, venta, anulación; curl de idempotencia |
+| **1. MVP backend** | Entidades + auth + catálogo CRUD + `POST /movements` + `POST /sales` + `POST /sales/{id}/void` (transaccionales) + `sync/push` + `sync/changes` — **desarrollo con SQLite local** | Postman: crear producto (genera `initial`), movimiento, venta, anulación; curl de idempotencia; migración aplicable a MariaDB |
 | **2. Cliente offline-first** | apiClient + outbox + syncEngine; servicios write-through con fallback; indicador de estado | Cortar red: vender → outbox; restaurar → se sincroniza y el servidor refleja venta, movimientos y stock |
 | **3. Robustez** | tombstones completos, paginación, backoff, reconciliación de stock, pruebas | Escenarios de doble dispositivo y conflicto de edición (409 → reaplicar) |
 | **4. Multi-tienda y facturación** | gestión de stores/usuarios, reportes centrales, integración con facturación (CFDI), dashboard de red | Dos tiendas operando sin pisarse; venta → factura emitida |

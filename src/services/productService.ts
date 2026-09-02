@@ -1,4 +1,4 @@
-import { loadData, saveData, nextId } from './storage';
+import { loadData, saveData, uuid } from './storage';
 import { movementService } from './movementService';
 import type { MovementType, Product } from '../types';
 
@@ -6,7 +6,7 @@ const KEY = 'products';
 
 const seedProducts: Product[] = [
   {
-    id: 1,
+    id: '00000000-0000-4000-8000-000000000001',
     name: 'Paracetamol 500mg',
     description: 'Analgésico y antipirético',
     price: 25.5,
@@ -19,7 +19,7 @@ const seedProducts: Product[] = [
     lot_number: 'LOT-001',
   },
   {
-    id: 2,
+    id: '00000000-0000-4000-8000-000000000002',
     name: 'Amoxicilina 250mg',
     description: 'Antibiótico de amplio espectro',
     price: 89.0,
@@ -32,7 +32,7 @@ const seedProducts: Product[] = [
     lot_number: 'LOT-002',
   },
   {
-    id: 3,
+    id: '00000000-0000-4000-8000-000000000003',
     name: 'Omeprazol 20mg',
     description: 'Inhibidor de bomba de protones',
     price: 45.0,
@@ -45,7 +45,7 @@ const seedProducts: Product[] = [
     lot_number: 'LOT-003',
   },
   {
-    id: 4,
+    id: '00000000-0000-4000-8000-000000000004',
     name: 'Aspirina 500mg',
     description: 'Antiagregante plaquetario',
     price: 35.0,
@@ -58,7 +58,7 @@ const seedProducts: Product[] = [
     lot_number: 'LOT-004',
   },
   {
-    id: 5,
+    id: '00000000-0000-4000-8000-000000000005',
     name: 'Losartán 50mg',
     description: 'Antihipertensivo',
     price: 120.0,
@@ -71,7 +71,7 @@ const seedProducts: Product[] = [
     lot_number: 'LOT-005',
   },
   {
-    id: 6,
+    id: '00000000-0000-4000-8000-000000000006',
     name: 'Clonazepam 2mg',
     description: 'Ansiolítico (controlado)',
     price: 95.0,
@@ -108,17 +108,19 @@ export interface StockAdjustOptions {
 
 export const productService = {
   getProducts(): Product[] {
-    return read();
+    return read().filter((p) => !p.deleted_at);
   },
 
   searchProducts(query: string): Product[] {
     const q = query.trim().toLowerCase();
-    if (!q) return read();
+    if (!q) return read().filter((p) => !p.deleted_at);
     return read().filter(
       (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.barcode.includes(q) ||
-        p.category.toLowerCase().includes(q)
+        !p.deleted_at &&
+        (p.name.toLowerCase().includes(q) ||
+          p.barcode.includes(q) ||
+          (p.sku ?? '').toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q))
     );
   },
 
@@ -126,13 +128,16 @@ export const productService = {
     return read().find((p) => p.barcode === barcode.trim());
   },
 
-  getById(id: number): Product | undefined {
+  getById(id: string): Product | undefined {
     return read().find((p) => p.id === id);
   },
 
-  createProduct(data: Omit<Product, 'id'>, opts?: { user?: string }): Product {
+  createProduct(
+    data: Omit<Product, 'id'>,
+    opts?: { user?: string; id?: string }
+  ): Product {
     const products = read();
-    const product: Product = { ...data, id: nextId(products) };
+    const product: Product = { ...data, id: opts?.id ?? uuid() };
     write([...products, product]);
     if (product.stock > 0) {
       movementService.record({
@@ -152,7 +157,7 @@ export const productService = {
   },
 
   updateProduct(
-    id: number,
+    id: string,
     data: Partial<Product>,
     opts?: { user?: string }
   ): Product | undefined {
@@ -183,7 +188,7 @@ export const productService = {
     return updated;
   },
 
-  deleteProduct(id: number): void {
+  deleteProduct(id: string): void {
     write(read().filter((p) => p.id !== id));
   },
 
@@ -191,7 +196,7 @@ export const productService = {
    * Ajusta el stock y registra el movimiento correspondiente.
    * delta con signo (+ entrada, - salida). type por defecto: 'adjustment'.
    */
-  adjustStock(id: number, delta: number, opts?: StockAdjustOptions): void {
+  adjustStock(id: string, delta: number, opts?: StockAdjustOptions): void {
     const products = read();
     const idx = products.findIndex((p) => p.id === id);
     if (idx === -1) return;
@@ -219,5 +224,38 @@ export const productService = {
 
   getLowStock(threshold = 10): Product[] {
     return read().filter((p) => p.stock <= threshold);
+  },
+
+  /**
+   * Aplica un producto del servidor (catálogo). Conserva el stock local si el
+   * cambio no trae stock (el stock llega en los cambios 'stock' del feed).
+   */
+  upsertRemote(product: Omit<Product, 'stock'>, stock?: number): void {
+    const products = read();
+    const idx = products.findIndex((p) => p.id === product.id);
+    if (idx === -1) {
+      products.push({ ...product, stock: stock ?? 0 });
+    } else {
+      products[idx] = { ...products[idx], ...product, stock: stock ?? products[idx].stock };
+    }
+    write(products);
+  },
+
+  /** Aplica el stock (y precio propio) de la tienda devuelto por el servidor. */
+  applyRemoteStock(productId: string, stock: number, priceOverride?: number | null): void {
+    const products = read();
+    const idx = products.findIndex((p) => p.id === productId);
+    if (idx === -1) return;
+    products[idx] = { ...products[idx], stock, price_override: priceOverride ?? null };
+    write(products);
+  },
+
+  /** Oculta localmente un producto (tombstone local) conservando su historial. */
+  hideProduct(id: string): void {
+    const products = read();
+    const idx = products.findIndex((p) => p.id === id);
+    if (idx === -1) return;
+    products[idx] = { ...products[idx], deleted_at: new Date().toISOString() };
+    write(products);
   },
 };

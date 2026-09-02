@@ -1,4 +1,4 @@
-import { loadData, saveData, nextId } from './storage';
+import { loadData, saveData, uuid } from './storage';
 import type { InventoryMovement, MovementType, Product } from '../types';
 
 const KEY = 'movements';
@@ -11,6 +11,7 @@ export const MOVEMENT_LABELS: Record<MovementType, string> = {
   return: 'Devolución',
   adjustment: 'Ajuste',
   shrinkage: 'Merma',
+  purchase_return: 'Devolución de compra',
 };
 
 export const MOVEMENT_STYLES: Record<MovementType, string> = {
@@ -20,6 +21,7 @@ export const MOVEMENT_STYLES: Record<MovementType, string> = {
   return: 'bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300',
   adjustment: 'bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300',
   shrinkage: 'bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300',
+  purchase_return: 'bg-orange-100 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300',
 };
 
 function read(): InventoryMovement[] {
@@ -31,7 +33,7 @@ function write(movements: InventoryMovement[]): void {
 }
 
 export interface MovementInput {
-  product_id: number;
+  product_id: string;
   product_name: string;
   product_barcode: string;
   type: MovementType;
@@ -55,7 +57,7 @@ export const movementService = {
   record(input: MovementInput): InventoryMovement {
     const movements = read();
     const movement: InventoryMovement = {
-      id: nextId(movements),
+      id: uuid(),
       created_at: new Date().toISOString(),
       user: input.user ?? 'Admin',
       ...input,
@@ -64,7 +66,7 @@ export const movementService = {
     return movement;
   },
 
-  getByProduct(productId: number): InventoryMovement[] {
+  getByProduct(productId: string): InventoryMovement[] {
     return read().filter((m) => m.product_id === productId);
   },
 
@@ -78,7 +80,7 @@ export const movementService = {
    */
   filter(options: {
     type?: MovementType | 'all';
-    productId?: number | 'all';
+    productId?: string | 'all';
     from?: string;
     to?: string;
     query?: string;
@@ -127,8 +129,7 @@ export const movementService = {
    * Crea movimientos 'initial' por el stock actual de los productos
    * la primera vez (idempotente vía flag). Así la traza es consistente
    * aunque el stock ya existía antes de esta función.
-   */
-  ensureInitialMovements(products: Product[]): void {
+   */  ensureInitialMovements(products: Product[]): void {
     if (loadData<boolean>(SEED_FLAG_KEY, false)) return;
     const movements = read();
     const existingProductIds = new Set(movements.map((m) => m.product_id));
@@ -136,7 +137,7 @@ export const movementService = {
     for (const product of products) {
       if (product.stock <= 0 || existingProductIds.has(product.id)) continue;
       toAdd.push({
-        id: nextId([...movements, ...toAdd]),
+        id: uuid(),
         product_id: product.id,
         product_name: product.name,
         product_barcode: product.barcode,
@@ -154,5 +155,12 @@ export const movementService = {
       write([...toAdd, ...movements]);
     }
     saveData(SEED_FLAG_KEY, true);
+  },
+
+  /** Aplica un movimiento del servidor (append-only; no reemplaza existentes). */
+  upsertRemote(movement: InventoryMovement): void {
+    const movements = read();
+    if (movements.some((m) => m.id === movement.id)) return;
+    write([movement, ...movements]);
   },
 };

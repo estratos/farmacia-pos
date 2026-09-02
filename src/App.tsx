@@ -12,7 +12,7 @@ import { AppProvider } from './contexts/AppContext'
 function App() {
   return (
     <AppProvider>
-      <Router>
+      <Router future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <Layout>
           <Routes>
             <Route path="/" element={<Dashboard />} />
