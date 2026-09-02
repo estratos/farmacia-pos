@@ -8,6 +8,7 @@ import {
   Settings,
   Pill,
   History,
+  Wallet,
 } from 'lucide-react';
 import { settingsService } from '../../services/settingsService';
 
@@ -31,6 +32,7 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
     title: 'Gestión',
     items: [
       { path: '/customers', icon: Users, label: 'Clientes' },
+      { path: '/cash', icon: Wallet, label: 'Caja' },
       { path: '/reports', icon: BarChart3, label: 'Reportes' },
     ],
   },

@@ -7,6 +7,7 @@ import Customers from './pages/Customers'
 import Reports from './pages/Reports'
 import SettingsPage from './pages/Settings'
 import Movements from './pages/Movements'
+import CashPage from './pages/Cash'
 import { AppProvider } from './contexts/AppContext'
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/movements" element={<Movements />} />
             <Route path="/customers" element={<Customers />} />
+            <Route path="/cash" element={<CashPage />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>

@@ -1,5 +1,6 @@
 import { Minus, Square, X, Pill } from 'lucide-react';
 import SyncIndicator from './SyncIndicator';
+import CashStatusPill from '../cash/CashStatusPill';
 
 const TitleBar: React.FC = () => {
   const handleMinimize = () => window.electronAPI?.minimizeWindow?.();
@@ -15,7 +16,8 @@ const TitleBar: React.FC = () => {
         <span className="text-sm font-semibold tracking-tight">Farmacia POS</span>
       </div>
 
-      <div className="flex items-center gap-3 non-draggable">
+      <div className="flex items-center gap-2 non-draggable">
+        <CashStatusPill />
         <SyncIndicator />
         <div className="flex space-x-1">
           <button

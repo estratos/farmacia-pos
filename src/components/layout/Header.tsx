@@ -4,6 +4,7 @@ import { settingsService } from '../../services/settingsService';
 import { useAppContext } from '../../contexts/AppContext';
 import { applyTheme, getTheme } from '../../lib/theme';
 import SyncIndicator from '../ui/SyncIndicator';
+import CashStatusPill from '../cash/CashStatusPill';
 
 function Header() {
   const { state } = useAppContext();
@@ -52,6 +53,7 @@ function Header() {
             </span>
           </div>
 
+          <CashStatusPill />
           <SyncIndicator />
 
           <button

@@ -128,11 +128,14 @@ body {
   }
 
   #receipt-area,
-  #receipt-area * {
+  #receipt-area *,
+  #cash-cut-area,
+  #cash-cut-area * {
     visibility: visible;
   }
 
-  #receipt-area {
+  #receipt-area,
+  #cash-cut-area {
     position: absolute;
     left: 0;
     top: 0;

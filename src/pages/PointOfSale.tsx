@@ -8,6 +8,8 @@ import { useAppContext } from '../contexts/AppContext';
 import { useToast } from '../components/ui/Toast';
 import { settingsService } from '../services/settingsService';
 import { writeCreateSale } from '../services/remoteApi';
+import { cashService } from '../services/cashService';
+import OpenCashModal from '../components/cash/OpenCashModal';
 import type { CartItem, PaymentMethod, Product, Sale } from '../types';
 
 function PointOfSale() {
@@ -16,6 +18,7 @@ function PointOfSale() {
   const { showToast } = useToast();
 
   const [showCheckout, setShowCheckout] = useState(false);
+  const [showOpenCash, setShowOpenCash] = useState(false);
   const [lastSale, setLastSale] = useState<Sale | null>(null);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
 
@@ -38,6 +41,21 @@ function PointOfSale() {
       return;
     }
     dispatch({ type: 'UPDATE_CART_QUANTITY', payload: { id: productId, quantity } });
+  };
+
+  // Apertura obligatoria: no se puede cobrar sin caja abierta
+  const handleCheckout = () => {
+    if (!cashService.getCurrentSession()) {
+      setShowOpenCash(true);
+      return;
+    }
+    setShowCheckout(true);
+  };
+
+  const handleOpenCash = (fondo: number) => {
+    cashService.openSession({ fondo, cajero: state.user?.name ?? 'Admin' });
+    setShowOpenCash(false);
+    showToast('success', 'Caja abierta — puedes cobrar la venta');
   };
 
   const handleConfirmSale = async (payload: {
@@ -71,7 +89,7 @@ function PointOfSale() {
           items={cart}
           onUpdateQuantity={handleUpdateQuantity}
           onRemoveItem={handleRemoveFromCart}
-          onCheckout={() => setShowCheckout(true)}
+          onCheckout={handleCheckout}
           onViewProduct={setDetailProduct}
         />
       </div>
@@ -85,6 +103,10 @@ function PointOfSale() {
             setDetailProduct(null);
           }}
         />
+      )}
+
+      {showOpenCash && (
+        <OpenCashModal onOpen={handleOpenCash} onClose={() => setShowOpenCash(false)} />
       )}
 
       {showCheckout && (

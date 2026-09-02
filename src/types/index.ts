@@ -112,6 +112,43 @@ export interface ApiResponse<T> {
   success: boolean;
 }
 
+// ---------------------------------------------------------------- Caja (cortes)
+
+export interface CashSession {
+  id: string; // UUID
+  store_id?: string;
+  caja: string; // nombre del dispositivo/caja
+  fondo: number; // efectivo inicial
+  cajero: string;
+  abierta_el: string; // ISO
+  cerrada_el?: string | null; // ISO (al cerrar con el corte)
+}
+
+export type CashMovementType = 'apertura' | 'retiro' | 'ingreso' | 'ajuste';
+
+export interface CashMovement {
+  id: string;
+  session_id: string;
+  tipo: CashMovementType;
+  monto: number; // con signo: retiro negativo, ingreso positivo
+  motivo?: string;
+  fecha: string; // ISO
+  usuario: string;
+}
+
+export interface CashCut {
+  id: string;
+  session_id: string;
+  caja?: string; // nombre del dispositivo/caja (para el ticket)
+  ventas_por_metodo: Record<PaymentMethod, { tickets: number; total: number }>;
+  esperado: Record<PaymentMethod, number>;
+  contado: Partial<Record<PaymentMethod, number>>;
+  diferencia: Record<PaymentMethod, number> & { total: number };
+  notas?: string;
+  cajero: string;
+  cerrado_el: string; // ISO
+}
+
 // Tipos para Electron
 export interface ElectronAPI {
   getAppVersion?: () => Promise<string>;
