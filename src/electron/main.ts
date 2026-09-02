@@ -10,6 +10,9 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    // Sin marco nativo: se usa el TitleBar personalizado (con arrastre y controles
+    // de ventana vía IPC). Evita que el título del documento se repita en la barra.
+    frame: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
