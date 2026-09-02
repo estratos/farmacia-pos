@@ -76,6 +76,7 @@ function Dashboard() {
   }, []);
 
   const maxChart = Math.max(...data.chartDays.map((d) => d.total), 1);
+  const hasChartData = data.chartDays.some((d) => d.total > 0);
 
   const stats = [
     {
@@ -105,7 +106,7 @@ function Dashboard() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
@@ -124,24 +125,23 @@ function Dashboard() {
       </div>
 
       {/* Tarjetas de estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <div
-              key={stat.label}
-              className="card p-5 flex items-start justify-between"
-            >
+            <div key={stat.label} className="card p-4 flex items-start justify-between">
               <div>
                 <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">
                   {stat.label}
                 </h3>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
+                <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums leading-tight">
                   {stat.value}
                 </p>
+                {/* Espacio reservado para futuros indicadores (vs. ayer, metas…) */}
+                <div className="h-4" aria-hidden="true" />
               </div>
               <span
-                className={`flex items-center justify-center w-11 h-11 rounded-xl ${stat.style.chip}`}
+                className={`flex items-center justify-center w-10 h-10 rounded-xl ${stat.style.chip}`}
               >
                 <Icon className={`w-5 h-5 ${stat.style.iconColor}`} />
               </span>
@@ -150,50 +150,58 @@ function Dashboard() {
         })}
       </div>
 
-      {/* Gráfica de ventas (últimos 7 días) */}
-      <div className="card p-6">
-        <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1">
-          Ventas — últimos 7 días
-        </h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">
-          Ingresos diarios totales
-        </p>
-        <div className="flex items-end gap-2 h-40">
-          {data.chartDays.map((d) => (
-            <div key={d.key} className="flex-1 flex flex-col items-center gap-1 h-full">
-              <div
-                className="w-full max-w-12 rounded-t-md bg-blue-500/70 dark:bg-blue-500/50 hover:bg-blue-600 dark:hover:bg-blue-400/70 transition-colors"
-                style={{
-                  height: d.total > 0 ? `${Math.max((d.total / maxChart) * 100, 4)}%` : '2px',
-                  opacity: d.total > 0 ? 1 : 0.25,
-                }}
-                title={`${d.label}: ${formatMoney(d.total)}`}
-              />
-              <span className="text-[10px] font-medium uppercase text-slate-400 dark:text-slate-500">
-                {d.label}
-              </span>
-            </div>
-          ))}
+      {/* Gráfica de ventas (últimos 7 días) — compacta */}
+      <div className="card p-4">
+        <div className="flex justify-between items-baseline mb-2">
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+            Ventas — últimos 7 días
+          </h3>
+          <span className="text-xs text-slate-400 dark:text-slate-500">
+            Ingresos diarios totales
+          </span>
         </div>
+        {hasChartData ? (
+          <div className="flex items-end gap-2 h-24">
+            {data.chartDays.map((d) => (
+              <div key={d.key} className="flex-1 flex flex-col items-center gap-1 h-full">
+                <div
+                  className="w-full max-w-12 rounded-t-md bg-blue-500/70 dark:bg-blue-500/50 hover:bg-blue-600 dark:hover:bg-blue-400/70 transition-colors"
+                  style={{
+                    height: d.total > 0 ? `${Math.max((d.total / maxChart) * 100, 4)}%` : '2px',
+                    opacity: d.total > 0 ? 1 : 0.25,
+                  }}
+                  title={`${d.label}: ${formatMoney(d.total)}`}
+                />
+                <span className="text-[10px] font-medium uppercase text-slate-400 dark:text-slate-500">
+                  {d.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="h-16 flex items-center justify-center text-sm text-slate-400 dark:text-slate-500">
+            Sin ventas en los últimos 7 días — la gráfica aparecerá aquí.
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {/* Ventas Recientes */}
-        <div className="card p-6">
-          <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-4">
+        <div className="card p-4">
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-3">
             Ventas Recientes
           </h3>
           {data.recentSales.length === 0 ? (
-            <div className="text-center py-10 text-slate-400 dark:text-slate-500">
-              <ShoppingCart className="w-10 h-10 mx-auto mb-2 opacity-40" />
+            <div className="text-center py-6 text-slate-400 dark:text-slate-500">
+              <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-40" />
               <p className="text-sm">Aún no hay ventas registradas.</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {data.recentSales.map((sale) => (
                 <div
                   key={sale.id}
-                  className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-700/40 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/70 transition-colors"
+                  className="flex justify-between items-center px-3 py-2 bg-slate-50 dark:bg-slate-700/40 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/70 transition-colors"
                 >
                   <div>
                     <div className="font-medium text-slate-800 dark:text-slate-100">
@@ -222,21 +230,21 @@ function Dashboard() {
         </div>
 
         {/* Productos Populares */}
-        <div className="card p-6">
-          <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-4">
+        <div className="card p-4">
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-3">
             Productos Populares
           </h3>
           {data.topProducts.length === 0 ? (
-            <div className="text-center py-10 text-slate-400 dark:text-slate-500">
-              <Package className="w-10 h-10 mx-auto mb-2 opacity-40" />
+            <div className="text-center py-6 text-slate-400 dark:text-slate-500">
+              <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
               <p className="text-sm">Los productos más vendidos aparecerán aquí.</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {data.topProducts.map((product) => (
                 <div
                   key={product.name}
-                  className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-700/40 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/70 transition-colors"
+                  className="flex justify-between items-center px-3 py-2 bg-slate-50 dark:bg-slate-700/40 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/70 transition-colors"
                 >
                   <div>
                     <div className="font-medium text-slate-800 dark:text-slate-100">
@@ -261,7 +269,7 @@ function Dashboard() {
 
       {/* Inventario bajo */}
       {data.lowStock.length > 0 && (
-        <div className="card p-5 border-l-4 border-amber-500 bg-amber-50/60 dark:bg-amber-500/5 dark:border-amber-500/60">
+        <div className="card p-4 border-l-4 border-amber-500 bg-amber-50/60 dark:bg-amber-500/5 dark:border-amber-500/60">
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             <h3 className="text-base font-semibold text-slate-900 dark:text-white">

@@ -6,7 +6,6 @@ import {
   Users,
   BarChart3,
   Settings,
-  Pill,
   History,
   Wallet,
 } from 'lucide-react';
@@ -42,35 +41,24 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
   },
 ];
 
+/**
+ * Sidebar sin encabezado duplicado: la identidad principal es el título de la
+ * ventana (TitleBar). El menú comienza directamente con "PRINCIPAL".
+ */
 const Sidebar: React.FC = () => {
   const location = useLocation();
   const settings = settingsService.getSettings();
 
   return (
     <aside className="w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col h-full shrink-0">
-      {/* Logo y título */}
-      <div className="p-5 border-b border-slate-200 dark:border-slate-700">
-        <div className="flex items-center gap-3">
-          <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600 text-white shadow-sm">
-            <Pill className="w-5 h-5" />
-          </span>
-          <div>
-            <h1 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
-              Farmacia POS
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Sistema de ventas</p>
-          </div>
-        </div>
-      </div>
-
       {/* Navegación */}
-      <nav className="flex-1 p-3 space-y-4 overflow-y-auto">
+      <nav className="flex-1 px-3 pt-4 pb-3 space-y-3 overflow-y-auto">
         {menuGroups.map((group) => (
           <div key={group.title}>
-            <p className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            <p className="px-3 mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               {group.title}
             </p>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {group.items.map((item) => {
                 const active = location.pathname === item.path;
                 const Icon = item.icon;
@@ -85,10 +73,10 @@ const Sidebar: React.FC = () => {
                     }`}
                   >
                     {active && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-blue-600" />
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-blue-600" />
                     )}
-                    <Icon className="w-5 h-5 shrink-0" />
-                    <span>{item.label}</span>
+                    <Icon className="w-[18px] h-[18px] shrink-0" />
+                    <span className="leading-none">{item.label}</span>
                   </Link>
                 );
               })}
@@ -98,11 +86,11 @@ const Sidebar: React.FC = () => {
       </nav>
 
       {/* Información de la farmacia */}
-      <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60">
+      <div className="p-3.5 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60">
         <div className="text-sm">
           <p className="font-semibold text-slate-800 dark:text-slate-100">{settings.pharmacyName}</p>
           <p className="text-xs text-slate-500 dark:text-slate-400">{settings.licenseNumber}</p>
-          <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+          <div className="mt-1.5 pt-1.5 border-t border-slate-200 dark:border-slate-700">
             <p className="text-xs text-slate-400 dark:text-slate-500">v1.2.0</p>
           </div>
         </div>
