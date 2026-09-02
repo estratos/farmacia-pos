@@ -274,29 +274,48 @@ async function pullChanges(storeId: string): Promise<void> {
 }
 
 /**
- * Sube al servidor los productos locales que no existen en su catálogo
- * (idempotente: una vez subidos, ya están). Se ejecuta una sola vez tras el
- * primer pull exitoso; los productos creados offline se suben vía outbox.
+ * Reconciliación del catálogo:
+ *  1) SIEMPRE: aplica al almacén local el catálogo completo del servidor
+ *     (productos + stock de la tienda). Así el POS recibe también los productos
+ *     importados (WooCommerce/seed) que NO generan entradas en el feed de cambios.
+ *  2) Una vez (flag): sube al servidor los productos locales que no existen y
+ *     oculta los duplicados por barcode.
  */
 export async function reconcileLocalCatalog(): Promise<number> {
   const storeId = getStoreId();
   if (!storeId) return 0;
-  if (loadData<boolean>(CATALOG_RECONCILED_KEY, false)) return 0;
+  const done = loadData<boolean>(CATALOG_RECONCILED_KEY, false);
 
-  // Catálogo completo del servidor (paginado): por id y por barcode
+  // 1) Bootstrap del catálogo del servidor (con stock y precio de la tienda)
   const serverIds = new Set<string>();
   const serverByBarcode = new Map<string, string>();
   let cursor: string | null | undefined;
   do {
-    const page = await apiRequest<{ items: BProduct[]; next_cursor: string | null }>(
-      `${API_PREFIX}/products?limit=500${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`
+    const page = await apiRequest<{
+      items: (BProduct & { stock?: BStock | null })[];
+      next_cursor: string | null;
+    }>(
+      `${API_PREFIX}/products?store_id=${encodeURIComponent(storeId)}&limit=500${
+        cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''
+      }`
     );
-    for (const p of page.items ?? []) {
-      serverIds.add(p.id);
-      if (p.barcode) serverByBarcode.set(p.barcode, p.id);
+    for (const item of page.items ?? []) {
+      serverIds.add(item.id);
+      if (item.barcode) serverByBarcode.set(item.barcode, item.id);
+      productService.upsertRemote(toLocalProduct(item), item.stock?.stock ?? undefined);
+      if (item.stock?.price_override != null) {
+        productService.applyRemoteStock(
+          item.id,
+          item.stock.stock,
+          parseFloat(item.stock.price_override)
+        );
+      }
     }
     cursor = page.next_cursor;
   } while (cursor);
+
+  // 2) Subida de productos locales ausentes (una sola vez)
+  if (done) return 0;
 
   let pushed = 0;
   let failed = 0;
