@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Pill, Percent, Receipt, Info, Save, Plug, Unplug, LoaderCircle } from 'lucide-react';
+import { Pill, Percent, Receipt, Info, Save, Plug, Unplug, LoaderCircle, RefreshCw } from 'lucide-react';
 import { settingsService, defaultSettings } from '../services/settingsService';
 import { useToast } from '../components/ui/Toast';
 import { getApiBaseUrl } from '../services/apiClient';
 import { getStoredAuth, login, clearAuth, remoteSyncHandlers } from '../services/remoteApi';
-import { setSyncHandlers } from '../services/syncEngine';
+import { setSyncHandlers, runSync } from '../services/syncEngine';
+import { productService } from '../services/productService';
 import type { AppSettings } from '../types';
 
 function SettingsPage() {
@@ -44,6 +45,21 @@ function SettingsPage() {
   const handleDisconnect = () => {
     clearAuth();
     showToast('info', 'Sesión cerrada');
+  };
+
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSyncNow = async () => {
+    setSyncing(true);
+    try {
+      await runSync();
+      const count = productService.getProducts().length;
+      showToast('success', `Catálogo sincronizado (${count} productos)`);
+    } catch {
+      showToast('error', 'No se pudo sincronizar: revisa la conexión y las credenciales');
+    } finally {
+      setSyncing(false);
+    }
   };
 
   return (
@@ -186,17 +202,32 @@ function SettingsPage() {
             </div>
 
             {auth ? (
-              <div className="flex items-center justify-between px-3 py-2.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-lg">
+              <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-lg">
                 <div className="text-sm text-emerald-700 dark:text-emerald-300">
                   <p className="font-semibold">Conectado a {auth.store.name}</p>
                   <p className="text-xs">
                     {auth.user.name} ({auth.user.role}) — tienda {auth.store.id.slice(0, 8)}
                   </p>
                 </div>
-                <button onClick={handleDisconnect} className="btn-ghost text-sm">
-                  <Unplug className="w-4 h-4" />
-                  Desconectar
-                </button>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={handleSyncNow}
+                    disabled={syncing}
+                    className="btn-ghost text-sm"
+                    title="Forzar sincronización del catálogo"
+                  >
+                    {syncing ? (
+                      <LoaderCircle className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4" />
+                    )}
+                    {syncing ? 'Sincronizando…' : 'Sincronizar ahora'}
+                  </button>
+                  <button onClick={handleDisconnect} className="btn-ghost text-sm">
+                    <Unplug className="w-4 h-4" />
+                    Desconectar
+                  </button>
+                </div>
               </div>
             ) : (
               <button onClick={handleConnect} disabled={connecting} className="btn-success">
