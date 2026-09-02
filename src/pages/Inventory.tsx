@@ -20,6 +20,7 @@ import { productService, subscribeProducts, getProductsRevision } from '../servi
 import { movementService, MOVEMENT_LABELS } from '../services/movementService';
 import { writeCreateProduct, writeUpdateProduct, writeDeleteProduct, writeAdjustStock } from '../services/remoteApi';
 import ProductThumb from '../components/products/ProductThumb';
+import ProductDetailModal from '../components/products/ProductDetailModal';
 import { formatMoney } from '../services/storage';
 import type { InventoryMovement, MovementType, Product } from '../types';
 
@@ -85,6 +86,7 @@ function Inventory() {
   const [stockCost, setStockCost] = useState('');
   const [stockError, setStockError] = useState<string | null>(null);
   const [recentMovements, setRecentMovements] = useState<InventoryMovement[]>([]);
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
 
   const filtered = search.trim() ? productService.searchProducts(search) : products;
   const userName = state.user?.name;
@@ -278,7 +280,11 @@ function Inventory() {
             </thead>
             <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
               {filtered.map((product) => (
-                <tr key={product.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors">
+                <tr
+                  key={product.id}
+                  onClick={() => setDetailProduct(product)}
+                  className="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors cursor-pointer"
+                >
                   <td className="table-cell">
                     <div className="flex items-center gap-3">
                       <ProductThumb
@@ -335,21 +341,30 @@ function Inventory() {
                   <td className="table-cell text-right">
                     <div className="flex justify-end gap-1">
                       <button
-                        onClick={() => openStockModal(product)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openStockModal(product);
+                        }}
                         className="p-2 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
                         title="Movimientos de stock (entrada / ajuste / merma)"
                       >
                         <ArrowLeftRight className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => openEdit(product)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEdit(product);
+                        }}
                         className="p-2 rounded-lg text-slate-500 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                         title="Editar"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(product)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(product);
+                        }}
                         className="p-2 rounded-lg text-slate-500 dark:text-slate-300 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                         title="Eliminar"
                       >
@@ -534,6 +549,21 @@ function Inventory() {
             </button>
           </div>
         </Modal>
+      )}
+
+      {detailProduct && (
+        <ProductDetailModal
+          product={detailProduct}
+          onClose={() => setDetailProduct(null)}
+          onEdit={(p) => {
+            setDetailProduct(null);
+            openEdit(p);
+          }}
+          onStock={(p) => {
+            setDetailProduct(null);
+            openStockModal(p);
+          }}
+        />
       )}
 
       {stockProduct && (
