@@ -8,9 +8,10 @@ interface CartProps {
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
   onCheckout: () => void;
+  onViewProduct?: (product: CartItem) => void;
 }
 
-function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout }: CartProps) {
+function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout, onViewProduct }: CartProps) {
   const taxRate = settingsService.getSettings().taxRate;
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const tax = (subtotal * taxRate) / 100;
@@ -40,7 +41,17 @@ function Cart({ items, onUpdateQuantity, onRemoveItem, onCheckout }: CartProps) 
             <div key={item.id} className="border-b border-slate-200 dark:border-slate-700 pb-4">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
-                  <h3 className="font-medium text-slate-900 dark:text-white">{item.name}</h3>
+                  {onViewProduct ? (
+                    <button
+                      onClick={() => onViewProduct(item)}
+                      className="font-medium text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                      title="Ver ficha del producto"
+                    >
+                      {item.name}
+                    </button>
+                  ) : (
+                    <h3 className="font-medium text-slate-900 dark:text-white">{item.name}</h3>
+                  )}
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {formatMoney(item.price)} c/u
                   </p>

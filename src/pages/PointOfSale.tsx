@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import ProductSearch from '../components/products/ProductSearch';
+import ProductDetailModal from '../components/products/ProductDetailModal';
 import Cart from '../components/sales/Cart';
 import CheckoutModal from '../components/sales/CheckoutModal';
 import Receipt from '../components/sales/Receipt';
@@ -16,6 +17,7 @@ function PointOfSale() {
 
   const [showCheckout, setShowCheckout] = useState(false);
   const [lastSale, setLastSale] = useState<Sale | null>(null);
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
 
   const taxRate = settingsService.getSettings().taxRate;
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -62,7 +64,7 @@ function PointOfSale() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 h-full">
       <div className="lg:col-span-2">
-        <ProductSearch onAddToCart={handleAddToCart} />
+        <ProductSearch onAddToCart={handleAddToCart} onViewProduct={setDetailProduct} />
       </div>
       <div className="lg:col-span-1">
         <Cart
@@ -70,8 +72,20 @@ function PointOfSale() {
           onUpdateQuantity={handleUpdateQuantity}
           onRemoveItem={handleRemoveFromCart}
           onCheckout={() => setShowCheckout(true)}
+          onViewProduct={setDetailProduct}
         />
       </div>
+
+      {detailProduct && (
+        <ProductDetailModal
+          product={detailProduct}
+          onClose={() => setDetailProduct(null)}
+          onAddToCart={(p) => {
+            handleAddToCart(p);
+            setDetailProduct(null);
+          }}
+        />
+      )}
 
       {showCheckout && (
         <CheckoutModal

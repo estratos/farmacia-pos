@@ -16,9 +16,10 @@ import type { Product } from '../../types';
 
 interface ProductSearchProps {
   onAddToCart: (product: Product) => void;
+  onViewProduct?: (product: Product) => void;
 }
 
-function ProductSearch({ onAddToCart }: ProductSearchProps) {
+function ProductSearch({ onAddToCart, onViewProduct }: ProductSearchProps) {
   const [searchTerm, setSearchTerm] = useState('');
   // Re-render al cambiar el catálogo (sync, write-through, reconciliación)
   useSyncExternalStore(subscribeProducts, getProductsRevision);
@@ -112,7 +113,8 @@ function ProductSearch({ onAddToCart }: ProductSearchProps) {
         {filteredProducts.map((product) => (
           <div
             key={product.id}
-            className="border border-slate-200 dark:border-slate-700 rounded-xl p-4 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-500/40 transition-all"
+            onClick={() => onViewProduct?.(product)}
+            className="border border-slate-200 dark:border-slate-700 rounded-xl p-4 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-500/40 transition-all cursor-pointer"
           >
             <div className="flex items-start gap-3">
               <ProductThumb
@@ -159,7 +161,10 @@ function ProductSearch({ onAddToCart }: ProductSearchProps) {
                   </span>
                 </div>
                 <button
-                  onClick={() => onAddToCart(product)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddToCart(product);
+                  }}
                   disabled={product.stock <= 0}
                   className="btn-primary w-full mt-3 text-sm"
                 >

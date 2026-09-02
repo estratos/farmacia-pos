@@ -8,6 +8,7 @@ import {
   Pencil,
   ArrowLeftRight,
   Hash,
+  Plus,
 } from 'lucide-react';
 import Modal from '../ui/Modal';
 import ProductThumb from './ProductThumb';
@@ -18,12 +19,19 @@ import type { Product } from '../../types';
 interface ProductDetailModalProps {
   product: Product;
   onClose: () => void;
-  onEdit: (product: Product) => void;
-  onStock: (product: Product) => void;
+  onEdit?: (product: Product) => void;
+  onStock?: (product: Product) => void;
+  onAddToCart?: (product: Product) => void;
 }
 
 /** Ficha del producto: imagen, datos y movimientos recientes con accesos rápidos. */
-function ProductDetailModal({ product, onClose, onEdit, onStock }: ProductDetailModalProps) {
+function ProductDetailModal({
+  product,
+  onClose,
+  onEdit,
+  onStock,
+  onAddToCart,
+}: ProductDetailModalProps) {
   const recent = movementService.getByProduct(product.id).slice(0, 5);
 
   const stockClass =
@@ -156,14 +164,28 @@ function ProductDetailModal({ product, onClose, onEdit, onStock }: ProductDetail
         <button onClick={onClose} className="btn-secondary flex-1">
           Cerrar
         </button>
-        <button onClick={() => onStock(product)} className="btn-ghost flex-1">
-          <ArrowLeftRight className="w-4 h-4" />
-          Stock
-        </button>
-        <button onClick={() => onEdit(product)} className="btn-primary flex-1">
-          <Pencil className="w-4 h-4" />
-          Editar
-        </button>
+        {onStock && (
+          <button onClick={() => onStock(product)} className="btn-ghost flex-1">
+            <ArrowLeftRight className="w-4 h-4" />
+            Stock
+          </button>
+        )}
+        {onEdit && (
+          <button onClick={() => onEdit(product)} className="btn-ghost flex-1">
+            <Pencil className="w-4 h-4" />
+            Editar
+          </button>
+        )}
+        {onAddToCart && (
+          <button
+            onClick={() => onAddToCart(product)}
+            disabled={product.stock <= 0}
+            className="btn-primary flex-1"
+          >
+            <Plus className="w-4 h-4" />
+            {product.stock <= 0 ? 'Sin stock' : 'Agregar al carrito'}
+          </button>
+        )}
       </div>
     </Modal>
   );
