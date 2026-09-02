@@ -153,6 +153,7 @@ export const cashService = {
     bump();
     notifySync(tipo === 'retiro' ? 'withdrawal' : 'ingress', {
       session_id: session.id,
+      remote_session_id: session.remote_session_id,
       monto,
       motivo: motivo || undefined,
       fecha: movement.fecha,
@@ -163,6 +164,17 @@ export const cashService = {
 
   getMovements(): CashMovement[] {
     return readMovements();
+  },
+
+  /**
+   * Asocia la sesión local con la sesión creada por el backend (sus ids
+   * difieren porque /cash/open no acepta el id del cliente todavía).
+   */
+  setRemoteSessionId(localSessionId: string, remoteSessionId: string): void {
+    const session = readSession();
+    if (!session || session.id !== localSessionId || session.cerrada_el) return;
+    saveData(SESSION_KEY, { ...session, remote_session_id: remoteSessionId });
+    bump();
   },
 
   /**
@@ -257,6 +269,7 @@ export const cashService = {
     bump();
     notifySync('close', {
       session_id: session.id,
+      remote_session_id: session.remote_session_id,
       cut_id: cut.id,
       contado: cut.contado,
       notas: cut.notas,

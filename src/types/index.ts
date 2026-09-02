@@ -115,7 +115,8 @@ export interface ApiResponse<T> {
 // ---------------------------------------------------------------- Caja (cortes)
 
 export interface CashSession {
-  id: string; // UUID
+  id: string; // UUID local (id de la sesión en este dispositivo)
+  remote_session_id?: string; // UUID de la sesión en el backend (si se sincronizó)
   store_id?: string;
   caja: string; // nombre del dispositivo/caja
   fondo: number; // efectivo inicial
