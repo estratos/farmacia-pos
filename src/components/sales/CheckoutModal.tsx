@@ -7,13 +7,14 @@ import type { CartItem, PaymentMethod } from '../../types';
 interface CheckoutModalProps {
   items: CartItem[];
   subtotal: number;
-  tax: number;
-  total: number;
+  /** Tasa de la tienda en porcentaje (ej. 16). Se puede marcar "Sin IVA" (0%). */
+  taxRatePercent: number;
   onConfirm: (payload: {
     items: CartItem[];
     subtotal: number;
     tax: number;
     total: number;
+    tax_rate?: number; // fracción 0–1; 0 = venta sin IVA
     payment_method: PaymentMethod;
     received?: number;
     change?: number;
@@ -27,9 +28,15 @@ const METHODS: { value: PaymentMethod; label: string; icon: React.ComponentType<
   { value: 'transferencia', label: 'Transferencia', icon: Landmark },
 ];
 
-function CheckoutModal({ items, subtotal, tax, total, onConfirm, onCancel }: CheckoutModalProps) {
+function CheckoutModal({ items, subtotal, taxRatePercent, onConfirm, onCancel }: CheckoutModalProps) {
   const [method, setMethod] = useState<PaymentMethod>('efectivo');
   const [received, setReceived] = useState('');
+  const [sinIva, setSinIva] = useState(false);
+
+  // IVA efectivo: 0 si "Sin IVA", si no la tasa de la tienda
+  const tax = sinIva ? 0 : (subtotal * taxRatePercent) / 100;
+  const total = subtotal + tax;
+  const taxRateFraction = sinIva ? 0 : taxRatePercent / 100;
 
   const receivedNum = parseFloat(received) || 0;
   const change = receivedNum - total;
@@ -42,6 +49,7 @@ function CheckoutModal({ items, subtotal, tax, total, onConfirm, onCancel }: Che
       subtotal,
       tax,
       total,
+      tax_rate: taxRateFraction,
       payment_method: method,
       received: method === 'efectivo' ? receivedNum : undefined,
       change: method === 'efectivo' ? change : undefined,
@@ -51,11 +59,46 @@ function CheckoutModal({ items, subtotal, tax, total, onConfirm, onCancel }: Che
   return (
     <Modal title="Cobro de Venta" onClose={onCancel}>
       <div className="space-y-4">
-        <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-4 text-center">
+        <div className="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Total a cobrar</p>
           <p className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums">
             {formatMoney(total)}
           </p>
+
+          {/* Selector de IVA por venta */}
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <button
+              onClick={() => setSinIva(false)}
+              className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                !sinIva
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              Con IVA ({taxRatePercent}%)
+            </button>
+            <button
+              onClick={() => setSinIva(true)}
+              className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                sinIva
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              Sin IVA (0%)
+            </button>
+          </div>
+
+          <div className="mt-3 space-y-1 text-sm">
+            <div className="flex justify-between text-slate-500 dark:text-slate-400">
+              <span>Subtotal</span>
+              <span className="tabular-nums">{formatMoney(subtotal)}</span>
+            </div>
+            <div className="flex justify-between text-slate-500 dark:text-slate-400">
+              <span>IVA {sinIva ? '(0%)' : `(${taxRatePercent}%)`}</span>
+              <span className="tabular-nums">{formatMoney(tax)}</span>
+            </div>
+          </div>
         </div>
 
         <div>

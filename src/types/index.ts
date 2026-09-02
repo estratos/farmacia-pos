@@ -31,6 +31,7 @@ export interface Sale {
   subtotal: number;
   tax: number;
   total: number;
+  tax_rate?: number; // fracción 0–1 aplicada (0 = sin IVA); undefined = tasa de la tienda
   date: string;
   payment_method: PaymentMethod;
   received?: number;

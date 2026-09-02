@@ -18,6 +18,9 @@ const PAYMENT_LABELS: Record<string, string> = {
 function Receipt({ sale, onClose }: ReceiptProps) {
   const settings = settingsService.getSettings();
   const date = new Date(sale.date);
+  // Tasa efectiva de la venta (0 = sin IVA); fallback a la tasa de la tienda
+  const ratePercent =
+    sale.tax_rate !== undefined ? Math.round(sale.tax_rate * 100) : settings.taxRate;
 
   return (
     <Modal title="Venta Completada" onClose={onClose}>
@@ -54,7 +57,7 @@ function Receipt({ sale, onClose }: ReceiptProps) {
           <span>{formatMoney(sale.subtotal)}</span>
         </div>
         <div className="flex justify-between">
-          <span>IVA ({settings.taxRate}%)</span>
+          <span>IVA ({ratePercent}%)</span>
           <span>{formatMoney(sale.tax)}</span>
         </div>
         <div className="flex justify-between text-sm font-bold mt-1">

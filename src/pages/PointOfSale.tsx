@@ -24,8 +24,6 @@ function PointOfSale() {
 
   const taxRate = settingsService.getSettings().taxRate;
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const tax = (subtotal * taxRate) / 100;
-  const total = subtotal + tax;
 
   const handleAddToCart = (product: Product) => {
     dispatch({ type: 'ADD_TO_CART', payload: product });
@@ -63,6 +61,7 @@ function PointOfSale() {
     subtotal: number;
     tax: number;
     total: number;
+    tax_rate?: number; // fracción 0–1; 0 = sin IVA
     payment_method: PaymentMethod;
     received?: number;
     change?: number;
@@ -113,8 +112,7 @@ function PointOfSale() {
         <CheckoutModal
           items={cart}
           subtotal={subtotal}
-          tax={tax}
-          total={total}
+          taxRatePercent={taxRate}
           onConfirm={handleConfirmSale}
           onCancel={() => setShowCheckout(false)}
         />

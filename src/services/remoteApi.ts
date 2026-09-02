@@ -825,6 +825,9 @@ export async function writeCreateSale(
       quantity: i.quantity,
       price: i.price,
     })),
+    // Tasa efectiva por venta (fracción 0–1): 0 = sin IVA; el backend la aplica
+    // en el cálculo de tax/total (POST /sales y outbox create_sale)
+    tax_rate: sale.tax_rate,
     payment_method: sale.payment_method,
     received: sale.received,
     change: sale.change,
@@ -833,7 +836,10 @@ export async function writeCreateSale(
   };
   try {
     const res = await remoteCreateSale(payload);
-    return applySaleResponse(res);
+    const local = applySaleResponse(res);
+    // El servidor no devuelve tax_rate en la venta; se conserva el efectivo usado
+    if (sale.tax_rate !== undefined) local.tax_rate = sale.tax_rate;
+    return local;
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) {
       throw new ApiError(
