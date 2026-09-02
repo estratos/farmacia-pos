@@ -66,23 +66,92 @@ existentes en el primer arranque).
 npm run typecheck
 ```
 
-## Build y empaquetado
+## Build de la aplicación de Electron
+
+### Requisitos previos
+
+- **Node.js 18+** y **npm** (el primer `npm install` descarga los binarios de Electron).
+- Windows: sin herramientas extra para este proyecto (no usa módulos nativos propios).
+- Una vez descargados los binarios, la compilación es **sin conexión** (no requiere internet).
+
+### 1) Instalar dependencias
 
 ```bash
-# Compilar el frontend (React) a dist/
-npm run build
-
-# Compilar el proceso de Electron a dist-electron/
-npm run electron:build
-
-# Empaquetar la app (sin instalador)
-npm run package
-
-# Generar instaladores (Windows: Squirrel .exe; mac/linux: .zip)
-npm run dist
+npm install
 ```
 
-> **Importante:** `npm run dist` primero compila el frontend y luego empaqueta. Electron carga el build de React desde `resources/dist/index.html` (configurado con `extraResource` en Electron Forge).
+> En desarrollo también se instalan `lucide-react` y `@fontsource/inter` (iconos y tipografía).
+
+### 2) Verificación de tipos (opcional pero recomendada)
+
+```bash
+npm run typecheck
+```
+
+### 3) Compilar el frontend (React → `dist/`)
+
+```bash
+npm run build
+```
+
+### 4) Compilar el proceso de Electron (→ `dist-electron/`)
+
+```bash
+npm run electron:build
+```
+
+### 5) Empaquetar la app (carpeta ejecutable, sin instalador)
+
+```bash
+npm run package
+```
+
+Genera la aplicación empaquetada en `out/farmacia_pos-win32-x64/` (puedes ejecutar
+`farmacia_pos.exe` directamente).
+
+### 6) Generar el instalador de Windows
+
+```bash
+npm run make
+```
+
+Genera el **instalador Squirrel** en `out/make/squirrel.windows/x64/`:
+
+- `farmacia_pos-<versión> Setup.exe` (p. ej. `farmacia_pos-1.2.0 Setup.exe`, según la
+  versión de `package.json`) — instalador de Windows (doble clic para instalar).
+- `RELEASES` — índice de versiones que usa Squirrel para actualizaciones.
+
+> **Todo en uno:** `npm run dist` equivale a `npm run build && npm run electron:build && npm run make`.
+
+### Probar el instalador
+
+1. Doble clic en `farmacia_pos-1.2.0 Setup.exe`.
+2. Se instala por usuario en `%LocalAppData%\farmacia_pos` y crea el acceso directo
+   en el menú Inicio.
+3. La app carga el build de React desde `resources/dist/index.html` (configurado con
+   `extraResource` en Electron Forge).
+
+> **Importante:** el empaquetado requiere que el build del frontend exista. Si ejecutas
+> `make`/`package` sin haber hecho `npm run build`, la app abrirá la pantalla de error
+> "Build de React No Encontrado". Usa siempre `npm run dist` (o los pasos 3–5 en orden).
+
+### Salidas del build
+
+| Comando | Salida |
+|---|---|
+| `npm run build` | `dist/` (frontend) |
+| `npm run electron:build` | `dist-electron/` (main/preload) |
+| `npm run package` | `out/farmacia_pos-win32-x64/` (app ejecutable) |
+| `npm run make` | `out/make/squirrel.windows/x64/` (Setup.exe + RELEASES) |
+
+### Notas
+
+- El instalador usa el **icono por defecto de Electron**; para un icono propio agrega
+  `assets/icon.ico` y el campo `"icon"` en `config.forge.packagerConfig` de `package.json`.
+- En macOS/Linux, `npm run make` genera `.zip` (maker-zip); el instalador Squirrel es
+  específico de Windows.
+- La app se puede ejecutar sin empaquetar durante el desarrollo con dos terminales:
+  `npm run dev` (Vite en :3000) y `npm run start` (Electron en modo desarrollo).
 
 ## Estructura del proyecto
 
