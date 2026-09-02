@@ -24,27 +24,28 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     void bootstrapAuth();
   }, []);
 
-  // Restaura la sesión o inicia sesión con las credenciales guardadas, y conecta
-  // el syncEngine al backend central.
+  // 1) Sesión fresca con las credenciales de Configuración (garantiza el rol
+  //    correcto, p. ej. admin/manager para sincronizar el catálogo).
+  // 2) Si falla (sin red o credenciales inválidas), se usa el token guardado.
   async function bootstrapAuth() {
+    const settings = settingsService.getSettings();
+    if (settings.apiUsername && settings.apiPassword) {
+      try {
+        const auth = await login(settings.apiUsername, settings.apiPassword);
+        setAuthToken(auth.token);
+        setSyncHandlers(remoteSyncHandlers);
+        void reconcileLocalCatalog().catch(() => undefined);
+        return;
+      } catch {
+        // sin red o credenciales inválidas → se cae al token guardado
+      }
+    }
+
     const stored = getStoredAuth();
     if (stored) {
       setAuthToken(stored.token);
       setSyncHandlers(remoteSyncHandlers);
-      // Reconciliación del catálogo una vez por arranque (si falla, se reintenta
-      // en el siguiente arranque o con "Sincronizar ahora")
       void reconcileLocalCatalog().catch(() => undefined);
-      return;
-    }
-    const settings = settingsService.getSettings();
-    if (settings.apiUsername && settings.apiPassword) {
-      try {
-        await login(settings.apiUsername, settings.apiPassword);
-        setSyncHandlers(remoteSyncHandlers);
-        void reconcileLocalCatalog().catch(() => undefined);
-      } catch {
-        // sin red o credenciales inválidas: se reintenta en el siguiente arranque
-      }
     }
   }
 

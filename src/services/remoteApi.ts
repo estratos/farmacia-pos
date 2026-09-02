@@ -331,9 +331,11 @@ export async function reconcileLocalCatalog(): Promise<number> {
       pushed += 1;
     } catch (err) {
       if (err instanceof ApiError && (err.status === 403 || err.status === 401)) {
-        // Sin permisos (rol manager/admin) o sesión inválida: detener el intento
+        // Sin permisos (se necesita rol manager/admin para crear en el catálogo)
+        // o sesión inválida: detener el intento en este ciclo.
         console.warn(
-          `[sync] No se pudo subir el producto "${p.name}" (${err.status}): ${err.message}`
+          `[sync] No se pudo subir el producto "${p.name}" (${err.status}): ${err.message}. ` +
+            'Se necesita un usuario admin/manager para crear productos en el catálogo central.'
         );
         return pushed;
       }
