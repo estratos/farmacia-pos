@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useSyncExternalStore, useState } from 'react';
 import {
   Search,
   Plus,
@@ -9,7 +9,7 @@ import {
   AlertTriangle,
   Info,
 } from 'lucide-react';
-import { productService } from '../../services/productService';
+import { productService, subscribeProducts, getProductsRevision } from '../../services/productService';
 import { formatMoney } from '../../services/storage';
 import ProductThumb from './ProductThumb';
 import type { Product } from '../../types';
@@ -20,7 +20,9 @@ interface ProductSearchProps {
 
 function ProductSearch({ onAddToCart }: ProductSearchProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [products] = useState<Product[]>(() => productService.getProducts());
+  // Re-render al cambiar el catálogo (sync, write-through, reconciliación)
+  useSyncExternalStore(subscribeProducts, getProductsRevision);
+  const products = productService.getProducts();
   const [feedback, setFeedback] = useState<{
     type: 'success' | 'error' | 'info';
     message: string;

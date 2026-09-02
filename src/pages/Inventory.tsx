@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useSyncExternalStore, useState } from 'react';
 import {
   Plus,
   Pencil,
@@ -16,7 +16,7 @@ import {
 import Modal from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
 import { useAppContext } from '../contexts/AppContext';
-import { productService } from '../services/productService';
+import { productService, subscribeProducts, getProductsRevision } from '../services/productService';
 import { movementService, MOVEMENT_LABELS } from '../services/movementService';
 import { writeCreateProduct, writeUpdateProduct, writeDeleteProduct, writeAdjustStock } from '../services/remoteApi';
 import ProductThumb from '../components/products/ProductThumb';
@@ -65,7 +65,9 @@ const STOCK_ACTIONS: {
 ];
 
 function Inventory() {
-  const [products, setProducts] = useState<Product[]>(() => productService.getProducts());
+  // Re-render al cambiar el catálogo (sync, write-through, reconciliación)
+  useSyncExternalStore(subscribeProducts, getProductsRevision);
+  const products = productService.getProducts();
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -85,7 +87,6 @@ function Inventory() {
   const [recentMovements, setRecentMovements] = useState<InventoryMovement[]>([]);
 
   const filtered = search.trim() ? productService.searchProducts(search) : products;
-  const refresh = () => setProducts(productService.getProducts());
   const userName = state.user?.name;
 
   const openCreate = () => {
@@ -118,7 +119,6 @@ function Inventory() {
     if (window.confirm(`¿Eliminar "${product.name}" del inventario?`)) {
       try {
         await writeDeleteProduct(product.id);
-        refresh();
         showToast('success', 'Producto eliminado');
       } catch (err) {
         showToast('error', err instanceof Error ? err.message : 'No se pudo eliminar');
@@ -164,7 +164,6 @@ function Inventory() {
         await writeCreateProduct(data, { user: userName });
         showToast('success', 'Producto agregado');
       }
-      refresh();
       setShowForm(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al guardar el producto');
@@ -222,7 +221,6 @@ function Inventory() {
         unitPrice: !isNaN(cost) && cost > 0 ? cost : stockProduct.price,
         user: userName,
       });
-      refresh();
       setStockProduct(productService.getById(stockProduct.id) ?? stockProduct);
       setRecentMovements(movementService.getByProduct(stockProduct.id).slice(0, 6));
       setStockQty('');

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useSyncExternalStore, useState } from 'react';
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import {
   movementService,
+  subscribeMovements,
+  getMovementsRevision,
   MOVEMENT_LABELS,
   MOVEMENT_STYLES,
 } from '../services/movementService';
@@ -32,9 +34,13 @@ function Movements() {
   const [to, setTo] = useState('');
   const [query, setQuery] = useState('');
 
+  // Re-render cuando llegan movimientos del sync o se registran localmente
+  const movementsRev = useSyncExternalStore(subscribeMovements, getMovementsRevision);
+
   const filtered = useMemo(
     () => movementService.filter({ type, productId, from, to, query }),
-    [type, productId, from, to, query]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [type, productId, from, to, query, movementsRev]
   );
 
   const summary = useMemo(() => movementService.getSummary(filtered), [filtered]);
@@ -46,7 +52,8 @@ function Movements() {
       if (!map.has(m.product_id)) map.set(m.product_id, m.product_name);
     }
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movementsRev]);
 
   const summaryCards = [
     {

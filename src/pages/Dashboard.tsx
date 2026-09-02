@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import { ShoppingCart, DollarSign, Package, PackageX, AlertTriangle } from 'lucide-react';
-import { saleService } from '../services/saleService';
-import { productService } from '../services/productService';
+import { saleService, subscribeSales, getSalesRevision } from '../services/saleService';
+import { productService, subscribeProducts, getProductsRevision } from '../services/productService';
 import { customerService } from '../services/customerService';
 import { settingsService } from '../services/settingsService';
 import { formatMoney } from '../services/storage';
@@ -29,6 +29,10 @@ const STAT_STYLES: Record<string, { chip: string; iconColor: string }> = {
 };
 
 function Dashboard() {
+  // Re-render cuando cambian ventas/productos (sync, write-through)
+  useSyncExternalStore(subscribeSales, getSalesRevision);
+  useSyncExternalStore(subscribeProducts, getProductsRevision);
+
   const data = useMemo(() => {
     const todaySales = saleService.getTodaySales();
     const allSales = saleService.getSales();

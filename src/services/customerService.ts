@@ -9,6 +9,24 @@ function read(): Customer[] {
 
 function write(customers: Customer[]): void {
   saveData(KEY, customers);
+  bump();
+}
+
+// --- Reactividad: las vistas se re-renderizan cuando cambian los clientes ---
+let revision = 0;
+const listeners = new Set<() => void>();
+function bump(): void {
+  revision += 1;
+  listeners.forEach((fn) => fn());
+}
+export function subscribeCustomers(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
+}
+export function getCustomersRevision(): number {
+  return revision;
 }
 
 export const customerService = {

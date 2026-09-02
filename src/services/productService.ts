@@ -94,6 +94,24 @@ function read(): Product[] {
 
 function write(products: Product[]): void {
   saveData(KEY, products);
+  bump();
+}
+
+// --- Reactividad: las vistas se re-renderizan cuando cambian los productos ---
+let revision = 0;
+const listeners = new Set<() => void>();
+function bump(): void {
+  revision += 1;
+  listeners.forEach((fn) => fn());
+}
+export function subscribeProducts(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
+}
+export function getProductsRevision(): number {
+  return revision;
 }
 
 export interface StockAdjustOptions {

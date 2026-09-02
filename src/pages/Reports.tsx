@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useSyncExternalStore, useState } from 'react';
 import {
   Receipt,
   DollarSign,
@@ -8,7 +8,7 @@ import {
   ChevronUp,
   BarChart3,
 } from 'lucide-react';
-import { saleService } from '../services/saleService';
+import { saleService, subscribeSales, getSalesRevision } from '../services/saleService';
 import { formatMoney } from '../services/storage';
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -19,6 +19,9 @@ const PAYMENT_LABELS: Record<string, string> = {
 
 function Reports() {
   const [expandedSale, setExpandedSale] = useState<string | null>(null);
+
+  // Re-render cuando llegan ventas del sync o se registran localmente
+  const salesRev = useSyncExternalStore(subscribeSales, getSalesRevision);
 
   const data = useMemo(() => {
     const sales = saleService.getSales();
@@ -33,7 +36,8 @@ function Reports() {
     const averageTicket = sales.length > 0 ? totalRevenue / sales.length : 0;
 
     return { sales, byDay, topProducts, totalRevenue, totalItems, averageTicket };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salesRev]);
 
   const summary = [
     {

@@ -10,6 +10,24 @@ function read(): Sale[] {
 
 function write(sales: Sale[]): void {
   saveData(KEY, sales);
+  bump();
+}
+
+// --- Reactividad: las vistas se re-renderizan cuando cambian las ventas ---
+let revision = 0;
+const listeners = new Set<() => void>();
+function bump(): void {
+  revision += 1;
+  listeners.forEach((fn) => fn());
+}
+export function subscribeSales(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
+}
+export function getSalesRevision(): number {
+  return revision;
 }
 
 export const saleService = {
