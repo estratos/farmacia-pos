@@ -2,19 +2,23 @@
 
 Sistema de punto de venta (POS) para farmacias, construido con **React + TypeScript + Vite + Tailwind CSS + Electron**.
 
-Los datos se guardan **localmente** en el equipo (localStorage), sin necesidad de servidor. La capa de servicios está diseñada para poder migrarse a un backend real en el futuro.
+Funciona **offline-first**: los datos se guardan localmente (localStorage) y la app sigue
+operando sin conexión; cuando hay red se **sincroniza con el backend central** (ventas,
+movimientos, caja, catálogo y clientes).
 
 ## Características
 
-- **Punto de Venta**: búsqueda por nombre o código de barras (soporta lector de código de barras: escanea y presiona Enter), carrito con IVA configurable, validación de stock, aviso de medicamentos que requieren receta.
-- **Cobro**: efectivo (con cálculo de cambio), tarjeta o transferencia.
-- **Recibo / Ticket**: vista previa en formato térmico de 80mm e impresión (impresora del sistema o térmica con controlador genérico).
-- **Inventario**: alta, edición, baja y búsqueda de productos (por nombre, código de barras o **SKU**); alertas de stock bajo; campos de lote y fecha de expiración; **imagen del producto** servida por el backend (URL `image_url`, sin copia local).
-- **Movimientos de inventario (auditoría)**: cada cambio de stock queda registrado con tipo (stock inicial, entrada/compra, venta, devolución, ajuste, merma), cantidad con signo, stock antes/después, referencia (ej. número de venta), motivo, proveedor, usuario y fecha. Pantalla dedicada con filtros (tipo, producto, rango de fechas, búsqueda) y resúmenes de entradas/salidas/neto. Registro *append-only*: no se edita ni elimina.
+- **Punto de Venta**: búsqueda por nombre, código de barras o **SKU** (soporta lector de código de barras: escanea y presiona Enter), carrito con IVA configurable, validación de stock, aviso de medicamentos que requieren receta.
+- **Cobro**: efectivo (con cálculo de cambio), tarjeta o transferencia; **IVA por venta** (con la tasa de la tienda o **sin IVA** al 0%).
+- **Recibo / Ticket**: vista previa e impresión en formato térmico de **80 mm** (ver [Impresión](#impresión-recibos-y-cortes-de-caja)).
+- **Caja (cortes)**: apertura con fondo inicial (obligatoria para vender), retiros/ingresos con motivo, **corte de caja** con conteo de efectivo y diferencia (sobrante/faltante), notas, impresión del corte e historial con reimpresión; los movimientos de caja se sincronizan con el backend.
+- **Inventario**: alta, edición, baja y búsqueda de productos; alertas de stock bajo; campos de lote y fecha de expiración; **imagen del producto** servida por el backend (URL `image_url`, sin copia local).
+- **Ficha del producto**: click en una fila del Inventario o en una tarjeta/nombre del POS abre la ficha (imagen, datos, stock, movimientos recientes y acciones de editar/stock).
+- **Movimientos de inventario (auditoría)**: cada cambio de stock queda registrado con tipo (stock inicial, entrada/compra, venta, devolución, ajuste, merma, devolución de compra), cantidad con signo, stock antes/después, referencia (ej. número de venta), motivo, proveedor, usuario y fecha. Pantalla dedicada con filtros (tipo, producto, rango de fechas, búsqueda) y resúmenes de entradas/salidas/neto. Registro *append-only*: no se edita ni elimina.
 - **Clientes**: registro y administración de clientes.
 - **Reportes**: ventas por día, productos más vendidos e historial de ventas.
 - **Dashboard**: ventas del día, ingresos, productos populares, stock bajo y **gráfica de ventas de los últimos 7 días**.
-- **Configuración**: nombre de la farmacia, licencia, % de IVA y pie de recibo.
+- **Configuración**: farmacia (nombre, licencia), impuestos (IVA), recibo (pie), **conexión al servidor** (usuario/contraseña con auto-login) y tema claro/oscuro.
 - **Interfaz profesional**: iconos SVG consistentes (Lucide), tipografía **Inter**, **modo claro/oscuro** con persistencia, **toasts** de confirmación y estados vacíos ilustrados.
 - **Electron**: ventana con barra de título personalizada (minimizar/maximizar/cerrar).
 
@@ -59,6 +63,43 @@ por defecto `http://localhost:8080`).
 
 Los IDs son UUID generados por el cliente (migración automática de los datos locales
 existentes en el primer arranque).
+
+### Caja y cortes de caja
+
+- **Apertura obligatoria para vender**: antes de cobrar, el POS pide abrir la caja con el
+  fondo inicial en efectivo.
+- **Retiros / ingresos** de efectivo con motivo, y **corte de caja** con conteo físico:
+  el esperado se calcula como `fondo + ventas en efectivo + ingresos − retiros`, y la
+  diferencia se clasifica en *sobrante*, *faltante* o *cuadrado*.
+- Cada movimiento (apertura, cierre, retiro, ingreso) se **persiste localmente** y se
+  **sincroniza** con el backend cuando está disponible (`/cash/open|close|withdrawal|ingress`,
+  con `id` de cliente e idempotencia). Sin conexión queda en el outbox.
+- Historial de cortes con reimpresión del ticket de corte.
+
+### Impresión (recibos y cortes de caja)
+
+La impresión se hace con el **diálogo del sistema** (`window.print()`) y una hoja de
+estilos para **ticket térmico de 80 mm**:
+
+- **Ticket de venta** (`src/components/sales/Receipt.tsx`, área `#receipt-area`): cabecera
+  de la farmacia, folio, productos, subtotal, **IVA con la tasa efectiva de la venta**,
+  total, forma de pago y cambio.
+- **Corte de caja** (`src/components/cash/CashCutModal.tsx`, área `#cash-cut-area`):
+  resumen por método, esperado vs. contado, diferencia, notas y **firmas** de cajero y
+  encargado. Se imprime al guardar el corte o al reimprimirlo desde el historial.
+- Reglas en `src/index.css` (`@media print`): solo se imprime el área del documento,
+  ancho fijo `80mm` y tipografía monoespaciada.
+
+**Requisitos**: una impresora instalada en Windows — térmica de 80 mm con controlador
+genérico (recomendado) o cualquier impresora del sistema. No se envían comandos ESC/POS
+crudos ni se accede directamente al puerto USB/serie.
+
+> **Ajustes de impresora: no implementados.** No existe una sección de configuración de
+> impresora: no se puede elegir impresora, ancho de papel (58/80 mm), número de copias ni
+> hacer una impresión de prueba desde la app; cada impresión abre el diálogo del sistema.
+> **Roadmap**: sección *Impresora* en Configuración (impresora por defecto, ancho 58/80 mm,
+> copias, impresión de prueba y, opcionalmente, impresión directa/silenciosa desde Electron
+> con `webContents.print`).
 
 ## Verificación de tipos
 
@@ -158,15 +199,23 @@ Genera el **instalador Squirrel** en `out/make/squirrel.windows/x64/`:
 ```
 src/
 ├── components/
+│   ├── cash/          # OpenCashModal, CashCutModal (corte 80mm), CashStatusPill
 │   ├── layout/        # Sidebar, Header, Layout
-│   ├── products/      # ProductSearch
-│   ├── sales/         # Cart, CheckoutModal, Receipt (ticket 80mm)
-│   └── ui/            # TitleBar, Modal
+│   ├── products/      # ProductSearch, ProductThumb, ProductDetailModal (ficha)
+│   ├── sales/         # Cart, CheckoutModal (IVA por venta), Receipt (ticket 80mm)
+│   └── ui/            # TitleBar, Modal, Toast, SyncIndicator
 ├── contexts/          # AppContext (estado del carrito)
 ├── electron/          # main.ts y preload.ts (proceso de Electron)
-├── pages/             # Dashboard, PointOfSale, Inventory, Customers, Reports, Settings
-├── services/          # storage (localStorage), productService, saleService, customerService, settingsService
-└── types/             # Tipos compartidos
+├── pages/             # Dashboard, PointOfSale, Inventory, Movements, Customers, Cash, Reports, Settings
+├── services/          # storage, productService, saleService, customerService, movementService,
+│                      # settingsService, cashService, apiClient, remoteApi (write-through/sync),
+│                      # outbox (cola offline), syncEngine
+└── types/             # Tipos compartidos (incl. backend.ts)
+scripts/
+└── flow-validation.mjs  # validación end-to-end contra el backend (34 checks)
+docs/
+├── central-api-design.md  # diseño de la API central
+└── cortes-de-caja.md      # diseño de cortes de caja
 ```
 
 ## Datos
